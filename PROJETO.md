@@ -134,25 +134,52 @@ NÍVEL INTERNO: cada episódio tem seu próprio treino e teste
   `M` (maligno; `B` = benigno), subtipo `DC`, paciente `14-2523`, magnificação `40`,
   sequência `010`.
 
-### 4.1 Subtipos e pacientes
+### 4.1 Subtipos e pacientes (contagem real, Etapa 2)
 
-Valores de pacientes **comumente citados, ainda a confirmar no CSV** (Etapa 2):
+Contagem de `data/breakhis.csv` (7.909 imagens, igual à página oficial; 40× = 1.995,
+100× = 2.081, 200× = 2.013, 400× = 1.820). Todas as pastas têm as 4 magnificações.
+"Pastas" é o ID oficial de paciente (nome da pasta); "casos" é o mesmo ID sem as
+letras de seção (ver 4.2, anomalia B).
 
-| Subtipo | Sigla | Classe | Pacientes (aprox.) | Imagens (aprox., 4 mags) |
-|---|---|---|---|---|
-| Carcinoma ductal | DC | M | ~38 | ~3.450 |
-| Fibroadenoma | F | B | ~10 | ~1.010 |
-| Carcinoma mucinoso | MC | M | ~9 | ~790 |
-| Adenoma tubular | TA | B | ~7 | ~570 |
-| Carcinoma papilífero | PC | M | ~6 | ~560 |
-| Carcinoma lobular | LC | M | ~5 | ~630 |
-| Adenose | A | B | ~4 | ~440 |
-| Tumor filoide | PT | B | ~3 | ~450 |
+| Subtipo | Sigla | Classe | Papel (D2) | Pastas | Casos | Imagens |
+|---|---|---|---|---|---|---|
+| Carcinoma ductal | DC | M | seen | 38 | 38 | 3.451 |
+| Fibroadenoma | F | B | seen | 10 | 7 | 1.014 |
+| Carcinoma mucinoso | MC | M | seen | 9 | 7 | 792 |
+| Adenoma tubular | TA | B | seen | 7 | 6 | 569 |
+| Adenose | A | B | unseen mval | 4 | 2 | 444 |
+| Carcinoma lobular | LC | M | unseen mval | 5 | 4 | 626 |
+| Tumor filoide | PT | B | unseen mtst | 3 | 3 | 453 |
+| Carcinoma papilífero | PC | M | unseen mtst | 6 | 6 | 560 |
 
-**A verificar na análise exploratória:** a contagem real de pacientes por subtipo;
-as imagens por paciente em cada magnificação (o gargalo do k-shot); se todo
-paciente tem imagens nas 4 magnificações; e se algum ID de paciente aparece em mais
-de um subtipo (há relatos disso no BreakHis).
+São 82 pares (subtipo, pasta), mas só 81 IDs de pasta distintos (o 14-13412 aparece
+em DC e LC) e 70 casos. Detalhes e figuras em `notebooks/01_eda.ipynb`.
+
+### 4.2 Anomalias de identificação de paciente
+
+**A. Imagens repetidas (hash dos pixels; os arquivos diferem em bytes).**
+- **14-13412:** as 123 imagens da pasta DC são idênticas às 123 da pasta LC (às vezes
+  com outro número de sequência). Mesmos dados, dois rótulos.
+- **LC 14-12204:** 2 pares repetidos a 40× (seq 16 = 34 e 17 = 35).
+
+**B. Pastas com o mesmo número de lâmina.** O README da base define o ID como
+`ano-lâmina` + letras de seção. Nove números se repartem em várias pastas:
+14134, 15570, 16184, 18842, 19979, 22549 e 23060 (mesmo subtipo); **21998** (F, F e
+**PT**) e **29960** (**A** e **F**), com subtipos diferentes. É provável, mas não
+comprovado, que pastas com o mesmo número venham do mesmo paciente.
+Indício pela cor média de cada pasta: distância mediana de 18,4 entre pastas do
+mesmo caso contra 35,1 entre casos diferentes; alguns pares ficam muito próximos
+(22549AB × CD no percentil 0,1; 21998CD × EF no 0,8), outros parecem independentes
+(16184 × 16184CD no percentil 80).
+
+**C. Viabilidade dos k-shots no P-PAC** (simulação do sorteio da seção 6.3 com
+k_tst = 15; classes seen com 20% dos pacientes por etapa, mínimo de 2):
+- Classes unseen e DC: sempre viáveis com k ≤ 20 (unidade = pasta).
+- F, MC e TA: falham em 10% a 35% dos sorteios **mesmo com k = 1**. O gargalo é o
+  query: às vezes o paciente restante tem menos de 15 imagens.
+- k = 20 é crítico para TA (12% a 36%) e MC (26% a 72%) nas duas unidades.
+- Com unidade = caso, a adenose a 100× fica inviável (51% com k ≤ 10; 0% com k = 20).
+- Um paciente de DC tem só 1 imagem a 40×.
 
 ---
 
@@ -178,6 +205,10 @@ de um subtipo (há relatos disso no BreakHis).
 | D16 | Data augmentation | **Desligada** (padrão do código original) | [PADRÃO] |
 | D17 | Magnificações misturadas | Só como extra opcional (expõe o vazamento V3) | [PADRÃO] |
 | D18 | Hardware e precisão | Sem GPU NVIDIA: macOS (M1, MPS) e Windows (AMD RX 7600, ROCm ou DirectML). Dispositivo escolhido em `src/device.py` (cuda/ROCm → mps → directml → cpu), precisão **fp32** (bf16 só como opção em CUDA) | [DECIDIDO] |
+| D19 | Paciente 14-13412 (anomalia A) | Opções: remover nas duas classes; manter em uma só. Sugestão: remover (rótulo ambíguo) | [PENDENTE] |
+| D20 | Repetições no LC 14-12204 (anomalia A) | Opções: manter uma imagem de cada par; manter tudo. Sugestão: manter uma | [PENDENTE] |
+| D21 | Unidade de "paciente" nas divisões (anomalia B) | Opções: pasta (82 oficiais, padrão da literatura); caso (número sem as letras, conservador); as duas, como análise de sensibilidade | [PENDENTE] |
+| D22 | Casos com dois subtipos, 14-21998 (F/PT) e 14-29960 (A/F) | Só se D21 = caso. Opções: descartar as imagens de F desses casos; forçar o caso inteiro na etapa da classe unseen | [PENDENTE] |
 
 ---
 
@@ -398,11 +429,11 @@ frase neutra.
 
 | # | Pendência | Como resolver | Padrão sugerido |
 |---|---|---|---|
-| P1 | Contagem real de pacientes por subtipo | Análise exploratória (Etapa 2) | — |
+| P1 | ~~Contagem real de pacientes por subtipo~~ | Resolvida na Etapa 2 (seção 4.1) | — |
 | P2 | Pacientes por etapa nas classes seen | Depois de P1 | ~60/20/20, mínimo de 2 na validação e no teste |
-| P3 | k-shots viáveis por magnificação | Tabela de imagens por paciente × magnificação | {1, 5, 10, 20}; tirar o 20 se não couber |
-| P4 | Tamanho do query (k_tst) | Depois de P3 | 15 por classe (artigo: 30) |
-| P5 | Anomalias nos IDs de paciente | Análise exploratória | Tratar e documentar |
+| P3 | k-shots viáveis por magnificação | Simulação em 4.2-C: k = 20 crítico para TA e MC | {1, 5, 10}; decidir sobre o 20 |
+| P4 | Tamanho do query (k_tst) | É o gargalo em F, MC e TA (4.2-C); avaliar k_tst menor ou ressorteio | 15 por classe (artigo: 30) |
+| P5 | Anomalias nos IDs de paciente | Levantadas na Etapa 2 (seção 4.2); decidir D19 a D22 | — |
 | P6 | Agregação entre sementes | Escolher a forma de IC entre sementes | Média ± desvio padrão das sementes, mais o IC dos episódios |
 
 ---

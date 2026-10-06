@@ -38,6 +38,11 @@ breakhis_fsl_quantification/   ← branch main (código)
   `docs`); mudanças de código, na raiz (vão para a `main`). Uma tarefa que mexe nos
   dois gera dois commits.
 - Nunca fazer merge entre `main` e `docs`.
+- Trabalho que depende de análise e decisão do aluno (ex.: EDA) vai para a branch
+  `staging`, criada a partir da `main`; o merge na `main` só acontece depois da
+  decisão.
+- Mostrar o texto dos commits ao aluno antes de commitar. Commits só com título (sem
+  descrição) e **sem** linha `Co-Authored-By`.
 - Configurar numa máquina nova, depois do `git clone`:
   ```
   git worktree add docs docs
