@@ -18,4 +18,4 @@ Formato: data · o que rodou · resultado · decisão.
   - Repositório privado no início; documentação viva numa branch órfã `docs`
     montada em `docs/` via `git worktree`.
   - Removidas a seção 2.4 e as pendências P1 (replicação) e P2 (GPU).
-- **Falta:** validar `src/device.py` no Windows (RX 7600, ROCm ou DirectML).
+- **Validado** pelo aluno, incluindo o Windows (RX 7600). Etapa 0 concluída.
