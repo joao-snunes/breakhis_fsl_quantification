@@ -1,0 +1,26 @@
+[project]
+name = "breakhis-fsl-quantification"
+version = "0.1.0"
+description = "Vazamento por imagem x por paciente em avaliação few-shot no BreakHis"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch",
+    "torchvision",
+    "timm",
+    "torchmetrics",
+    "pandas",
+    "numpy",
+    "scikit-learn",
+    "matplotlib",
+    "pyyaml",
+    "tqdm",
+]
+
+[dependency-groups]
+dev = ["pytest", "ipykernel"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

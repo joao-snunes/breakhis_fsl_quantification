@@ -1,0 +1,11 @@
+# documentação vive na branch órfã "docs" (worktree em docs/)
+docs/
+CLAUDE.md
+.claude/
+data/
+results/
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+.pytest_cache/
