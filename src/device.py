@@ -3,7 +3,7 @@
 Ordem do modo "auto": CUDA → MPS → DirectML → CPU.
 - CUDA: GPU NVIDIA e também AMD com ROCm (o PyTorch-ROCm se apresenta como "cuda").
 - MPS: GPU integrada dos Macs com Apple Silicon.
-- DirectML: GPU AMD no Windows quando não há ROCm (pacote opcional torch-directml).
+- DirectML: GPU AMD quando não há ROCm (pacote opcional torch-directml).
 """
 
 import torch
