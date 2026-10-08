@@ -1,31 +1,38 @@
-"""Gera data/breakhis.csv a partir dos nomes dos arquivos do BreakHis.
+"""Gera data/breakhis_raw.csv: uma linha por imagem do BreakHis, sem nenhum tratamento.
 
 Formato do nome (README da base):
-    SOB_M_DC-14-2523-40-010.png → procedimento SOB, classe M, subtipo DC,
-    ano 14, lâmina 2523 (+ letras de seção opcionais, ex. 22549AB),
-    magnificação 40, sequência 010.
+    SOB_B_A-14-22549AB-100-001.png → procedimento SOB, classe B, subtipo A,
+    registro 14-22549, seção AB, magnificação 100, sequência 001.
 
 Colunas:
     path          caminho relativo a data/
-    classe        B (benigno) ou M (maligno)
-    subtipo       A, F, PT, TA, DC, LC, MC, PC
-    paciente      ID oficial, igual ao nome da pasta (ex. 14-22549AB) → 82 pacientes
-    caso          ID sem as letras de seção (ex. 14-22549); agrupa pastas que
-                  compartilham o número da lâmina
+    classe        benign ou malignant
+    id_subtipo    A, F, PT, TA, DC, LC, MC, PC
+    des_subtipo   nome da pasta do subtipo (ex. ductal_carcinoma)
+    id_paciente   registro do exame (ex. 14-22549)
+    secao         letras de seção (ex. AB; vazio quando não há)
     magnificacao  40, 100, 200, 400
     seq           sequência da imagem
+    rgb_hash      MD5 dos pixels RGB: imagens iguais têm o mesmo hash mesmo com
+                  arquivos (bytes) diferentes
+
+O tratamento (duplicatas etc.) fica em notebooks/02_clear_csv.ipynb.
 """
 
+import hashlib
 import re
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
+from PIL import Image
 
 DATA = Path("data")
 PATTERN = re.compile(
-    r"SOB_(?P<classe>[BM])_(?P<subtipo>[A-Z]+)-(?P<paciente>(?P<caso>\d+-\d+)[A-Z]*)"
+    r"SOB_(?P<classe>[BM])_(?P<id_subtipo>[A-Z]+)-(?P<id_paciente>\d+-\d+)(?P<secao>[A-Z]*)"
     r"-(?P<magnificacao>40|100|200|400)-(?P<seq>\d+)\.png"
 )
+CLASSE = {"B": "benign", "M": "malignant"}
 
 
 def build(root: Path = DATA / "BreaKHis_v1") -> pd.DataFrame:
@@ -33,17 +40,26 @@ def build(root: Path = DATA / "BreaKHis_v1") -> pd.DataFrame:
     for p in sorted(root.rglob("*.png")):
         m = PATTERN.fullmatch(p.name)
         assert m, f"nome fora do padrão: {p.name}"
-        # a pasta do paciente (ex. SOB_B_A_14-22549AB) deve concordar com o nome do arquivo
-        assert p.parent.parent.name.endswith(m["paciente"]), p
-        assert p.parent.name == m["magnificacao"] + "X", p
-        rows.append({"path": str(p.relative_to(DATA)), **m.groupdict()})
-    df = pd.DataFrame(rows)
-    df["magnificacao"] = df["magnificacao"].astype(int)
-    df["seq"] = df["seq"].astype(int)
-    return df[["path", "classe", "subtipo", "paciente", "caso", "magnificacao", "seq"]]
+        # .../<classe>/SOB/<des_subtipo>/SOB_B_A_14-22549AB/100X/<arquivo>: pastas devem concordar com o nome
+        mag_dir, pac_dir, sub_dir, _, cls_dir = p.parents[:5]
+        assert mag_dir.name == m["magnificacao"] + "X", p
+        assert pac_dir.name == f"SOB_{m['classe']}_{m['id_subtipo']}_{m['id_paciente']}{m['secao']}", p
+        assert cls_dir.name == CLASSE[m["classe"]], p
+        rows.append({
+            "path": str(p.relative_to(DATA)),
+            "classe": CLASSE[m["classe"]],
+            "id_subtipo": m["id_subtipo"],
+            "des_subtipo": sub_dir.name,
+            "id_paciente": m["id_paciente"],
+            "secao": m["secao"],
+            "magnificacao": int(m["magnificacao"]),
+            "seq": int(m["seq"]),
+            "rgb_hash": hashlib.md5(np.asarray(Image.open(p).convert("RGB")).tobytes()).hexdigest(),
+        })
+    return pd.DataFrame(rows)
 
 
 if __name__ == "__main__":
     df = build()
-    df.to_csv(DATA / "breakhis.csv", index=False)
-    print(f"{len(df)} imagens, {df.paciente.nunique()} pacientes, {df.caso.nunique()} casos")
+    df.to_csv(DATA / "breakhis_raw.csv", index=False)
+    print(f"{len(df)} imagens -> data/breakhis_raw.csv")
