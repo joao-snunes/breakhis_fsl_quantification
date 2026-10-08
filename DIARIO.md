@@ -59,3 +59,25 @@ Formato: data · o que rodou · resultado · decisão.
 - **Atenção para a Etapa 3:** o F ficou com 5 pacientes; com no mínimo 2 em mval e 2 em
   mtst, sobra 1 no meta-treino (P2).
 - **Falta:** k-shots e k_tst (P3, P4); depois, o merge da `staging` na `main`.
+
+## 08/10/2026 — Etapa 3: divisões entre etapas
+
+- **Decisões:**
+  - **D23 (P2):** mval = mtst = máx(2, arred(0,2·n)) pacientes por classe seen. O F
+    fica 1/2/2: o mínimo de 2 é o que permite ao P-PAC separar support e query por
+    paciente; ter 1 paciente de F no mtrn é limitação a declarar.
+  - **D24:** o sorteio de pacientes é o mesmo nas 4 magnificações.
+  - **D25:** um CSV por semente (`data/splits/seed{S}.csv`) com `etapa_pac` e
+    `etapa_img` lado a lado.
+  - **D26:** coluna `classe` renomeada para `malignidade`; "classe" no few-shot é o
+    subtipo.
+- **Rodou:** `src/splits.py` com as sementes 0, 10, 42, 109 e 2026 (constantes no código);
+  `tests/test_splits.py` (8 testes passam); simulador interativo das divisões e dos
+  episódios (artifact) para entender as etapas antes de decidir.
+- **Resultado:**
+  - Pacientes mtrn/mval/mtst em todas as sementes: DC 23/7/7, MC 3/2/2, TA 2/2/2,
+    F 1/2/2 (o paciente de F no mtrn: 25197 em três sementes, 23060 e 23222).
+  - A 40×, o mtrn tem 629 a 702 imagens seen (~50%), menos que os 60% previstos.
+  - No P-IMG, 100% dos pacientes seen ficam em mais de uma etapa (vazamento V2 em
+    todos), com os mesmos totais de imagens do P-PAC.
+- **Falta:** k-shots e k_tst (P3, P4), antes da Etapa 4 (episódios).

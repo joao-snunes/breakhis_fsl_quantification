@@ -32,7 +32,7 @@ em `../meta-cxr`).
 | IC de 95% | `utils.py` (`compute_mean_ci`) | Copiar |
 | IC entre sementes | `utils.py` (`agregate_run_df_aux`, com `scipy.stats.bootstrap`) | Opcional; pode simplificar |
 | Normalização | `base.py` (`backbone.pretrained_cfg['mean'/'std']`) | Copiar a ideia |
-| Hiperparâmetros padrão | `args.py` e `batchbased.py` (`add_args`) | Passar para `configs/default.yaml` |
+| Hiperparâmetros padrão | `args.py` e `batchbased.py` (`add_args`) | Constantes no topo dos módulos |
 
 ## 3. Simplificar ou descartar
 
@@ -46,7 +46,7 @@ em `../meta-cxr`).
 | S6 | ProtoNet-ML (`method/protonet.py`) | Fora do escopo (D7) | Remover; citar como trabalho futuro |
 | S7 | Registro de ~15 arquiteturas e carga de checkpoints por nome (`network/models.py`, `backbones.py`) | Só uma arquitetura | Uma linha com `timm.create_model` e `torch.save/load` do `state_dict` |
 | S8 | Registro de métodos (`METHODS`, `Registry`) | Só um método | Funções diretas |
-| S9 | ~60 argumentos `argparse` (`args.py`) | Difícil de rastrear e reproduzir | Um `configs/default.yaml` e um `configs/grid.yaml`, lidos com `pyyaml` (ou `dataclass`) |
+| S9 | ~60 argumentos `argparse` (`args.py`) | Difícil de rastrear e reproduzir | Constantes nomeadas no topo de cada módulo |
 | S10 | Experimentos chamados via `subprocess` (`utils.pretrain_adapt` monta `python pretrain.py --x y`) | Indireto e difícil de depurar | Chamadas de função em Python (`run_grid.py`) |
 | S11 | `experiment.py` com `paper_arch`, `paper_resolution`, `paper_pretraining`, `paper_task_complexity_*` | Reproduzem tabelas do artigo | Um script de grade com os seus fatores (magnificação × protocolo × k × semente) |
 | S12 | PyTorch Lightning (`LightningModule`, `Trainer`, `ModelCheckpoint`, `EarlyStopping`) | O BatchBased já usa otimização manual (`automatic_optimization = False`), então o Lightning ajuda pouco e esconde o loop | **Loop de treino em PyTorch puro** (~100 linhas: épocas → lotes → validação por episódios → early stopping → salvar o melhor). Mais fácil de explicar na banca |
@@ -69,7 +69,7 @@ em `../meta-cxr`).
 | Cache de embeddings | `src/embeddings.py` | Pré-calcula e guarda os embeddings por checkpoint |
 | Testes anti-vazamento | `tests/test_splits.py`, `tests/test_episodes.py` | Seção 12 do `PROJETO.md` |
 | Contraprova | `notebooks/03_contraprova.ipynb` | Regressão logística do scikit-learn sobre os mesmos embeddings e episódios |
-| Grade de experimentos | `scripts/run_grid.py` + `configs/grid.yaml` | Roda e retoma a grade, sem refazer o que já existe |
+| Grade de experimentos | `scripts/run_grid.py` | Roda e retoma a grade, sem refazer o que já existe |
 
 ## 5. Estrutura sugerida do novo repositório
 
@@ -77,9 +77,6 @@ em `../meta-cxr`).
 breakhis_fsl_quantification/
 ├── CLAUDE.md               # fora do Git: @docs/CLAUDE.md
 ├── README.md
-├── configs/
-│   ├── default.yaml        # hiperparâmetros (seção 9.4 do PROJETO.md)
-│   └── grid.yaml           # magnificações, protocolos, k-shots, sementes
 ├── data/                   # fora do Git
 │   ├── BreaKHis_v1/
 │   ├── breakhis_raw.csv    # build_csv.py

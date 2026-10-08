@@ -160,7 +160,7 @@ limpeza (seção 4.2): **7.458 imagens de 70 pacientes** (40× = 1.875, 100× = 
 Pipeline de dados em três passos, cada um sobre a saída do anterior:
 
 1. `scripts/build_csv.py` → `data/breakhis_raw.csv` (7.909 imagens, sem tratamento):
-   `path`, `classe` (benign/malignant), `id_subtipo`, `des_subtipo`, `id_paciente`,
+   `path`, `malignidade` (benign/malignant), `id_subtipo`, `des_subtipo`, `id_paciente`,
    `secao`, `magnificacao`, `seq`, `rgb_hash` (MD5 dos pixels RGB).
 2. `notebooks/01_eda.ipynb`: exploração da base bruta, onde as anomalias aparecem.
 3. `notebooks/02_clear_csv.ipynb`: aplica D19 a D22 → `data/breakhis.csv` (7.458
@@ -273,6 +273,10 @@ seen com 20% dos pacientes por etapa, mínimo de 2):
 | D20 | Imagens repetidas | Deduplicar, mantendo a de menor `seq`; repetidas entre benigno e maligno sairiam das duas classes (nenhuma encontrada) | [DECIDIDO] |
 | D21 | Unidade de "paciente" | **Número de registro sem as letras de seção** (pastas com o mesmo número = mesmo paciente). Justificativa na seção 4.2-B | [DECIDIDO] |
 | D22 | Pacientes com dois subtipos, 14-21998 (F/PT) e 14-29960 (A/F) | Descartar as imagens de **F** desses pacientes (seção 4.2-B) | [DECIDIDO] |
+| D23 | Pacientes por etapa nas classes seen (P2) | mval = mtst = máx(2, arred(0,2·n)) pacientes; resto no mtrn. **F fica 1/2/2**: o mínimo de 2 é obrigatório para o P-PAC separar support e query; 1 paciente de F no mtrn é limitação declarada | [DECIDIDO] |
+| D24 | Divisão entre magnificações | O sorteio de pacientes depende só da semente: **o mesmo nas 4 magnificações**, para não confundir o efeito da magnificação com o da divisão | [DECIDIDO] |
+| D25 | Arquivo das divisões | `data/splits/seed{S}.csv`, uma linha por imagem: `path, id_paciente, id_subtipo, magnificacao, etapa_pac, etapa_img` | [DECIDIDO] |
+| D26 | Nome do grupo benigno/maligno | Coluna `malignidade`; no few-shot, "classe" é sempre o **subtipo** | [DECIDIDO] |
 
 ---
 
@@ -350,7 +354,7 @@ todos os k-shots com ele. O P-MIX compartilha o backbone do P-PAC (mesma divisã
 entre etapas). Portanto:
 
 - pré-treinos = 4 magnificações × 2 divisões (por imagem, por paciente) × S sementes
-  → com S = 5, são **40 pré-treinos** (cerca de 900 imagens de meta-treino cada: ~60% das ~1.450 imagens seen por magnificação;
+  → com S = 5, são **40 pré-treinos** (cerca de 650 a 700 imagens de meta-treino cada a 40×: ~50% das ~1.350 imagens seen, porque o mínimo de 2 pacientes em mval/mtst pesa nas classes pequenas;
   devem levar minutos com a MobileNet);
 - avaliações = 4 magnificações × 3 protocolos × 4 k-shots × S sementes × 1.000 episódios.
 
@@ -494,7 +498,7 @@ frase neutra.
 | # | Pendência | Como resolver | Padrão sugerido |
 |---|---|---|---|
 | P1 | ~~Contagem real de pacientes por subtipo~~ | Resolvida na Etapa 2 (seção 4.1) | — |
-| P2 | Pacientes por etapa nas classes seen | Etapa 3. Com a D22, F tem 5 pacientes e ficaria 1/2/2: decidir se aceita 1 paciente no meta-treino ou relaxa o mínimo para F | ~60/20/20, mínimo de 2 na validação e no teste |
+| P2 | ~~Pacientes por etapa nas classes seen~~ | Resolvida: D23 | — |
 | P3 | k-shots viáveis por magnificação | Simulação em 4.3: k = 20 crítico para TA, MC e A | {1, 5, 10}; decidir sobre o 20 |
 | P4 | Tamanho do query (k_tst) | É o gargalo em MC, TA e A (4.3); avaliar k_tst menor ou ressorteio | 15 por classe (artigo: 30) |
 | P5 | ~~Anomalias nos IDs de paciente~~ | Resolvida: D19 a D22 (seção 4.2) | — |
@@ -508,12 +512,12 @@ Cada etapa tem um **entregável** e um **critério de pronto**. Não avançar se
 
 ### Etapa 0: Ambiente e repositório
 - Criar o repositório Git do TCC (separado das referências) com `src/`, `scripts/`,
-  `notebooks/`, `configs/`, `data/` (fora do Git), `results/` (fora do Git), `docs/`
+  `notebooks/`, `data/` (fora do Git), `results/` (fora do Git), `docs/`
   e `tests/`.
 - Documentação na branch órfã `docs`, montada em `docs/` via `git worktree`
   (ver `CLAUDE.md`).
 - Ambiente Python 3.12 gerenciado com **uv**, com `torch`, `torchvision`, `timm`,
-  `torchmetrics`, `pandas`, `numpy`, `scikit-learn`, `matplotlib`, `pyyaml`, `tqdm`,
+  `torchmetrics`, `pandas`, `numpy`, `scikit-learn`, `matplotlib`, `tqdm`,
   `pytest`.
 - Criar `docs/DIARIO.md` (caderno de laboratório: data, o que rodou, resultado, decisão).
 - **Pronto quando:** `src/device.py` encontra o acelerador da máquina (ou a CPU) e
@@ -540,11 +544,11 @@ Cada etapa tem um **entregável** e um **critério de pronto**. Não avançar se
   tabelas estão salvas em `docs/`.
 
 ### Etapa 3: Divisões (splits)
-- `src/splits.py`: dado (CSV, magnificação, semente), gera
-  - a divisão **por paciente** entre etapas (classes seen; unseen fixas por etapa);
-  - a divisão **por imagem** com os **mesmos tamanhos** por classe e etapa.
-- Salvar cada divisão em `data/splits/{mag}_{split}_{seed}.csv`
-  (`path, paciente, subtipo, etapa`).
+- `src/splits.py`: dado (CSV limpo, semente), gera
+  - a divisão **por paciente** entre etapas (classes seen; unseen fixas por etapa), a
+    mesma nas 4 magnificações (D24);
+  - a divisão **por imagem** com os **mesmos tamanhos** por classe, magnificação e etapa.
+- Salvar em `data/splits/seed{S}.csv` (D25); sementes (0, 10, 42, 109, 2026) e frações como constantes no próprio `splits.py`.
 - **Pronto quando:** os testes `tests/test_splits.py` passam (seção 12).
 
 ### Etapa 4: Amostrador de episódios
@@ -576,7 +580,7 @@ Cada etapa tem um **entregável** e um **critério de pronto**. Não avançar se
 - **Pronto quando:** o orientador valida o piloto.
 
 ### Etapa 8: Grade completa
-- `scripts/run_grid.py` lê `configs/grid.yaml` e roda todas as combinações, pulando
+- `scripts/run_grid.py` define a grade em constantes e roda todas as combinações, pulando
   as que já têm resultado (permite retomar).
 - **Pronto quando:** todos os CSVs existem e nenhum teste de vazamento falhou.
 

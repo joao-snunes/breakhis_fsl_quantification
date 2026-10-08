@@ -73,7 +73,8 @@ breakhis_fsl_quantification/   ← branch main (código)
    classe e por etapa na mesma semente.
 5. **Reprodutibilidade:** toda aleatoriedade passa por uma semente explícita; cada
    resultado grava a configuração completa que o gerou.
-6. **Configuração em YAML** (`configs/`), não em dezenas de argumentos de linha de comando.
+6. **Parâmetros como constantes** nomeadas no topo de cada módulo (ex.: `SEEDS` em
+   `src/splits.py`), sem arquivo de configuração e sem dezenas de argumentos de linha de comando.
 7. **PyTorch puro** (sem PyTorch Lightning), para o loop ficar legível.
 
 ## Como trabalhar com o aluno
@@ -95,7 +96,7 @@ breakhis_fsl_quantification/   ← branch main (código)
 ## Convenções
 
 - Python 3.12, `torch`, `torchvision`, `timm`, `torchmetrics`, `pandas`, `numpy`,
-  `scikit-learn`, `matplotlib`, `pyyaml`, `tqdm`, `pytest`.
+  `scikit-learn`, `matplotlib`, `tqdm`, `pytest`.
 - Dados em `data/` e resultados em `results/`, ambos fora do Git.
 - Resultados: CSV com **uma linha por episódio** (colunas na seção 8.4 do `PROJETO.md`).
 - Siglas: `mtrn`, `mval`, `mtst` (etapas); `P-IMG`, `P-MIX`, `P-PAC` (protocolos);
