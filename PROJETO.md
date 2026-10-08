@@ -136,50 +136,114 @@ NÍVEL INTERNO: cada episódio tem seu próprio treino e teste
 
 ### 4.1 Subtipos e pacientes (contagem real, Etapa 2)
 
-Contagem de `data/breakhis.csv` (7.909 imagens, igual à página oficial; 40× = 1.995,
-100× = 2.081, 200× = 2.013, 400× = 1.820). Todas as pastas têm as 4 magnificações.
-"Pastas" é o ID oficial de paciente (nome da pasta); "casos" é o mesmo ID sem as
-letras de seção (ver 4.2, anomalia B).
+Base bruta: 7.909 imagens, igual à página oficial (40× = 1.995, 100× = 2.081,
+200× = 2.013, 400× = 1.820); todas as pastas têm as 4 magnificações. Depois da
+limpeza (seção 4.2): **7.458 imagens de 70 pacientes** (40× = 1.875, 100× = 1.969,
+200× = 1.897, 400× = 1.717).
 
-| Subtipo | Sigla | Classe | Papel (D2) | Pastas | Casos | Imagens |
-|---|---|---|---|---|---|---|
-| Carcinoma ductal | DC | M | seen | 38 | 38 | 3.451 |
-| Fibroadenoma | F | B | seen | 10 | 7 | 1.014 |
-| Carcinoma mucinoso | MC | M | seen | 9 | 7 | 792 |
-| Adenoma tubular | TA | B | seen | 7 | 6 | 569 |
-| Adenose | A | B | unseen mval | 4 | 2 | 444 |
-| Carcinoma lobular | LC | M | unseen mval | 5 | 4 | 626 |
-| Tumor filoide | PT | B | unseen mtst | 3 | 3 | 453 |
-| Carcinoma papilífero | PC | M | unseen mtst | 6 | 6 | 560 |
+- **Pasta:** o ID oficial (nome da pasta, ex. `14-22549AB` = `id_paciente` + `secao`);
+  são os 82 "pacientes" do artigo da base.
+- **Paciente (`id_paciente`):** o número de registro sem as letras de seção (ex. `14-22549`), a
+  unidade adotada (D21).
 
-São 82 pares (subtipo, pasta), mas só 81 IDs de pasta distintos (o 14-13412 aparece
-em DC e LC) e 70 casos. Detalhes e figuras em `notebooks/01_eda.ipynb`.
+| Subtipo | Sigla | Classe | Papel (D2) | Pastas (bruta) | Pacientes (bruta) | Imagens (bruta) | Pastas (usada) | **Pacientes (usada)** | Imagens (usada) |
+|---|---|---|---|---|---|---|---|---|---|
+| Carcinoma ductal | DC | M | seen | 38 | 38 | 3.451 | 37 | **37** | 3.328 |
+| Fibroadenoma | F | B | seen | 10 | 7 | 1.014 | 7 | **5** | 688 |
+| Carcinoma mucinoso | MC | M | seen | 9 | 7 | 792 | 9 | **7** | 792 |
+| Adenoma tubular | TA | B | seen | 7 | 6 | 569 | 7 | **6** | 569 |
+| Adenose | A | B | unseen mval | 4 | 2 | 444 | 4 | **2** | 444 |
+| Carcinoma lobular | LC | M | unseen mval | 5 | 4 | 626 | 5 | **4** | 624 |
+| Tumor filoide | PT | B | unseen mtst | 3 | 3 | 453 | 3 | **3** | 453 |
+| Carcinoma papilífero | PC | M | unseen mtst | 6 | 6 | 560 | 6 | **6** | 560 |
 
-### 4.2 Anomalias de identificação de paciente
+Pipeline de dados em três passos, cada um sobre a saída do anterior:
 
-**A. Imagens repetidas (hash dos pixels; os arquivos diferem em bytes).**
+1. `scripts/build_csv.py` → `data/breakhis_raw.csv` (7.909 imagens, sem tratamento):
+   `path`, `classe` (benign/malignant), `id_subtipo`, `des_subtipo`, `id_paciente`,
+   `secao`, `magnificacao`, `seq`, `rgb_hash` (MD5 dos pixels RGB).
+2. `notebooks/01_eda.ipynb`: exploração da base bruta, onde as anomalias aparecem.
+3. `notebooks/02_clear_csv.ipynb`: aplica D19 a D22 → `data/breakhis.csv` (7.458
+   imagens, mesmas colunas). É o CSV usado daqui em diante.
+
+### 4.2 Anomalias de identificação de paciente e decisões
+
+**A. Imagens repetidas.** Comparando os arquivos byte a byte não aparece nenhuma
+repetição (os PNGs foram regravados); comparando o **conteúdo em pixels** (hash MD5 da
+matriz RGB), aparecem 125 grupos:
+
+- **Nenhuma imagem se repete entre benigno e maligno.** A regra, caso aparecesse,
+  seria excluir a imagem das duas classes (regra mantida no `02_clear_csv.ipynb`).
 - **14-13412:** as 123 imagens da pasta DC são idênticas às 123 da pasta LC (às vezes
-  com outro número de sequência). Mesmos dados, dois rótulos.
-- **LC 14-12204:** 2 pares repetidos a 40× (seq 16 = 34 e 17 = 35).
+  com outro número de sequência). Mesmos dados, dois rótulos malignos; uma hipótese
+  plausível é um carcinoma misto (ductal e lobular) catalogado duas vezes.
+  **D19:** as imagens ficam só em LC. Motivo: LC é a classe unseen da meta-validação,
+  com poucos pacientes (4), enquanto DC tem 38 e perder 1 quase não pesa.
+- **LC 14-12204:** 2 pares repetidos a 40× (seq 16 = 34 e 17 = 35). **D20:** fica a
+  primeira imagem de cada par (menor `seq`). Sem isso, a mesma imagem poderia cair no
+  support e no query de um episódio.
 
-**B. Pastas com o mesmo número de lâmina.** O README da base define o ID como
-`ano-lâmina` + letras de seção. Nove números se repartem em várias pastas:
-14134, 15570, 16184, 18842, 19979, 22549 e 23060 (mesmo subtipo); **21998** (F, F e
-**PT**) e **29960** (**A** e **F**), com subtipos diferentes. É provável, mas não
-comprovado, que pastas com o mesmo número venham do mesmo paciente.
-Indício pela cor média de cada pasta: distância mediana de 18,4 entre pastas do
-mesmo caso contra 35,1 entre casos diferentes; alguns pares ficam muito próximos
-(22549AB × CD no percentil 0,1; 21998CD × EF no 0,8), outros parecem independentes
-(16184 × 16184CD no percentil 80).
+**B. Pastas com o mesmo número de registro → D21: paciente = registro.**
 
-**C. Viabilidade dos k-shots no P-PAC** (simulação do sorteio da seção 6.3 com
-k_tst = 15; classes seen com 20% dos pacientes por etapa, mínimo de 2):
-- Classes unseen e DC: sempre viáveis com k ≤ 20 (unidade = pasta).
-- F, MC e TA: falham em 10% a 35% dos sorteios **mesmo com k = 1**. O gargalo é o
-  query: às vezes o paciente restante tem menos de 15 imagens.
-- k = 20 é crítico para TA (12% a 36%) e MC (26% a 72%) nas duas unidades.
-- Com unidade = caso, a adenose a 100× fica inviável (51% com k ≤ 10; 0% com k = 20).
+O README da base define o ID como `ano-número` seguido de **letras de seção**
+(`<SLIDE_ID>::=<NUMBER><SECTION>`), sem explicar as letras. Nove números se repartem
+em várias pastas: 14134, 15570, 16184, 18842, 19979, 22549 e 23060 (mesmo subtipo);
+**21998** (F, F e **PT**) e **29960** (**A** e **F**), com subtipos diferentes.
+
+Justificativa da D21 (para a metodologia e para a banca):
+
+1. **Como funciona um laboratório de patologia** (convenção usual, não documentada
+   pela base): o número (`14-22549`) é o **registro do exame**, ou seja, um pedido,
+   uma peça cirúrgica, um paciente. Na macroscopia a peça é cortada em fragmentos
+   (**blocos**, identificados por letras), e cada lâmina leva um corte de ~3 µm de um
+   ou mais blocos. Pastas com o mesmo número seriam, então, fragmentos diferentes da
+   **mesma peça do mesmo paciente**.
+2. **Direção segura:** tratar como pacientes distintas duas pastas que são da mesma
+   pessoa deixaria **vazamento escondido dentro do P-PAC**, o protocolo que deveria
+   ser o "sem vazamento". Isso subestimaria o Δ que o TCC mede. Agrupar a mais custa
+   alguns pacientes; separar a menos invalida a comparação. É o mesmo raciocínio de
+   escolher a coluna de grupo no `GroupKFold`.
+3. **Indício nos dados:** a cor média H&E das pastas do mesmo registro é mais
+   parecida do que a de pastas de registros diferentes (distância mediana 18,4 contra
+   35,1). Alguns pares ficam quase idênticos (22549AB × CD no percentil 0,1 de todos
+   os pares; 21998CD × EF no 0,8). Outros não (16184 × 16184CD no percentil 80), o
+   que **não contradiz** a D21: blocos de regiões distintas da peça podem ter tecido
+   e coloração diferentes.
+4. **Limitações a declarar:** a interpretação das letras é uma inferência, não um
+   fato documentado pela base; e registros diferentes **não** garantem pacientes
+   diferentes (a mesma pessoa pode ter dois exames), o que a base não permite
+   verificar. A literatura costuma usar a pasta (82 pacientes).
+5. **Reversível:** se o orientador preferir a pasta, basta trocar a coluna de
+   agrupamento (`id_paciente` → `id_paciente` + `secao`) nas divisões. Também é
+   possível rodar as duas como análise de sensibilidade.
+
+**D22: pacientes com dois subtipos.** Com a D21, 14-21998 (fibroadenoma e tumor
+filoide) e 14-29960 (adenose e fibroadenoma) passam a ser um paciente com lesões de
+dois subtipos, o que é biologicamente possível. Como F é seen (vai para mtrn, mval e
+mtst) e PT/A são unseen (etapa fixa), o mesmo paciente acabaria em duas etapas
+(vazamento V2). **Decisão:** descartar as imagens de F desses dois pacientes (326
+imagens). PT e A, as classes mais escassas, ficam intactas. Alternativa descartada:
+forçar o F desses pacientes na etapa da classe unseen, o que complicaria as divisões e
+tiraria essas imagens do sorteio.
+
+**Resumo da limpeza** (`02_clear_csv.ipynb`): D22 = 326 imagens, D19 = 123,
+D20 = 2; total 451. O notebook confere com `assert` que, no CSV limpo, não
+sobra hash repetido e cada paciente tem um só subtipo.
+
+### 4.3 Viabilidade dos k-shots no P-PAC
+
+Simulação do sorteio da seção 6.3 com k_tst = 15, sobre as imagens usadas (classes
+seen com 20% dos pacientes por etapa, mínimo de 2):
+
+- Classes unseen (exceto A) e DC: sempre viáveis com k ≤ 20.
+- MC (até 15%) e TA (17% a 35%) falham **mesmo com k = 1**. O gargalo é o query:
+  às vezes o paciente restante tem menos de 15 imagens.
+- k = 20 é crítico para TA (10% a 25% de sucesso), MC (48% a 72%) e F (80%).
+- Adenose (2 pacientes): a 100× só 51% dos sorteios funcionam com k ≤ 10, e nenhum
+  com k = 20.
 - Um paciente de DC tem só 1 imagem a 40×.
+- **Consequência da D22 para a Etapa 3:** o F ficou com 5 pacientes. Com no mínimo 2
+  na meta-validação e 2 no meta-teste, sobra **1 paciente de F no meta-treino** (ver P2).
 
 ---
 
@@ -205,10 +269,10 @@ k_tst = 15; classes seen com 20% dos pacientes por etapa, mínimo de 2):
 | D16 | Data augmentation | **Desligada** (padrão do código original) | [PADRÃO] |
 | D17 | Magnificações misturadas | Só como extra opcional (expõe o vazamento V3) | [PADRÃO] |
 | D18 | Hardware e precisão | Sem GPU NVIDIA: macOS (M1, MPS) e Windows (AMD RX 7600, ROCm ou DirectML). Dispositivo escolhido em `src/device.py` (cuda/ROCm → mps → directml → cpu), precisão **fp32** (bf16 só como opção em CUDA) | [DECIDIDO] |
-| D19 | Paciente 14-13412 (anomalia A) | Opções: remover nas duas classes; manter em uma só. Sugestão: remover (rótulo ambíguo) | [PENDENTE] |
-| D20 | Repetições no LC 14-12204 (anomalia A) | Opções: manter uma imagem de cada par; manter tudo. Sugestão: manter uma | [PENDENTE] |
-| D21 | Unidade de "paciente" nas divisões (anomalia B) | Opções: pasta (82 oficiais, padrão da literatura); caso (número sem as letras, conservador); as duas, como análise de sensibilidade | [PENDENTE] |
-| D22 | Casos com dois subtipos, 14-21998 (F/PT) e 14-29960 (A/F) | Só se D21 = caso. Opções: descartar as imagens de F desses casos; forçar o caso inteiro na etapa da classe unseen | [PENDENTE] |
+| D19 | Paciente 14-13412 (mesmas imagens em DC e LC) | Imagens mantidas **só em LC** (seção 4.2-A) | [DECIDIDO] |
+| D20 | Imagens repetidas | Deduplicar, mantendo a de menor `seq`; repetidas entre benigno e maligno sairiam das duas classes (nenhuma encontrada) | [DECIDIDO] |
+| D21 | Unidade de "paciente" | **Número de registro sem as letras de seção** (pastas com o mesmo número = mesmo paciente). Justificativa na seção 4.2-B | [DECIDIDO] |
+| D22 | Pacientes com dois subtipos, 14-21998 (F/PT) e 14-29960 (A/F) | Descartar as imagens de **F** desses pacientes (seção 4.2-B) | [DECIDIDO] |
 
 ---
 
@@ -246,8 +310,8 @@ stopping com o meta-teste.
 
 - **P-PAC / P-MIX:** para cada classe seen, sortear os **pacientes** em
   meta-treino, meta-validação e meta-teste (alvo ~60/20/20), com **no mínimo 2
-  pacientes** na validação e no teste. Exemplo: DC ≈ 24/7/7; F ≈ 6/2/2;
-  MC ≈ 5/2/2; TA ≈ 3/2/2. Todas as imagens de um paciente vão para a mesma etapa.
+  pacientes** na validação e no teste. Com os pacientes da seção 4.1:
+  DC ≈ 23/7/7; MC ≈ 3/2/2; TA ≈ 2/2/2; **F = 1/2/2** (ver P2). Todas as imagens de um paciente vão para a mesma etapa.
 - **P-IMG:** juntar as imagens da classe e sortear **imagens** para cada etapa,
   com **o mesmo número de imagens por etapa e por classe** que o P-PAC gerou na
   mesma semente. Assim, só a regra de agrupamento muda.
@@ -430,10 +494,10 @@ frase neutra.
 | # | Pendência | Como resolver | Padrão sugerido |
 |---|---|---|---|
 | P1 | ~~Contagem real de pacientes por subtipo~~ | Resolvida na Etapa 2 (seção 4.1) | — |
-| P2 | Pacientes por etapa nas classes seen | Depois de P1 | ~60/20/20, mínimo de 2 na validação e no teste |
-| P3 | k-shots viáveis por magnificação | Simulação em 4.2-C: k = 20 crítico para TA e MC | {1, 5, 10}; decidir sobre o 20 |
-| P4 | Tamanho do query (k_tst) | É o gargalo em F, MC e TA (4.2-C); avaliar k_tst menor ou ressorteio | 15 por classe (artigo: 30) |
-| P5 | Anomalias nos IDs de paciente | Levantadas na Etapa 2 (seção 4.2); decidir D19 a D22 | — |
+| P2 | Pacientes por etapa nas classes seen | Etapa 3. Com a D22, F tem 5 pacientes e ficaria 1/2/2: decidir se aceita 1 paciente no meta-treino ou relaxa o mínimo para F | ~60/20/20, mínimo de 2 na validação e no teste |
+| P3 | k-shots viáveis por magnificação | Simulação em 4.3: k = 20 crítico para TA, MC e A | {1, 5, 10}; decidir sobre o 20 |
+| P4 | Tamanho do query (k_tst) | É o gargalo em MC, TA e A (4.3); avaliar k_tst menor ou ressorteio | 15 por classe (artigo: 30) |
+| P5 | ~~Anomalias nos IDs de paciente~~ | Resolvida: D19 a D22 (seção 4.2) | — |
 | P6 | Agregação entre sementes | Escolher a forma de IC entre sementes | Média ± desvio padrão das sementes, mais o IC dos episódios |
 
 ---
@@ -464,12 +528,13 @@ Cada etapa tem um **entregável** e um **critério de pronto**. Não avançar se
   disco até a AUC de um episódio.
 
 ### Etapa 2: Dados (sem deep learning)
-- `scripts/build_csv.py`: varre o BreakHis e gera `data/breakhis.csv` com
-  `path, classe, subtipo, paciente, magnificacao, seq`.
-- `notebooks/01_eda.ipynb`: pacientes por subtipo; imagens por subtipo ×
+- `scripts/build_csv.py`: varre o BreakHis e gera `data/breakhis_raw.csv` (seção 4.1).
+- `notebooks/01_eda.ipynb`, sobre o CSV bruto: anomalias de identificação; pacientes por subtipo; imagens por subtipo ×
   magnificação; **imagens por paciente × magnificação** (mínimo, mediana, máximo);
   pacientes presentes em todas as magnificações; IDs em mais de um subtipo;
   visualização de imagens do mesmo paciente lado a lado.
+- `notebooks/02_clear_csv.ipynb`: aplica as decisões da EDA e gera `data/breakhis.csv`;
+  viabilidade dos k-shots sobre o CSV limpo.
 - Atualizar a seção 4.1 e resolver P1, P3, P4 e P5.
 - **Pronto quando:** o CSV tem 7.909 linhas (ou a diferença está explicada) e as
   tabelas estão salvas em `docs/`.
@@ -498,7 +563,7 @@ Cada etapa tem um **entregável** e um **critério de pronto**. Não avançar se
   numa semente.
 
 ### Etapa 6: Contraprova com scikit-learn
-- `notebooks/02_contraprova.ipynb`: com os mesmos embeddings e episódios, treinar
+- `notebooks/03_contraprova.ipynb`: com os mesmos embeddings e episódios, treinar
   `LogisticRegression` (one-vs-rest) do scikit-learn e comparar a AUC com a cabeça
   em PyTorch.
 - **Pronto quando:** as AUCs médias ficam próximas (diferença de poucos décimos) e
@@ -516,7 +581,7 @@ Cada etapa tem um **entregável** e um **critério de pronto**. Não avançar se
 - **Pronto quando:** todos os CSVs existem e nenhum teste de vazamento falhou.
 
 ### Etapa 9: Análise
-- `notebooks/03_resultados.ipynb`: tabela central (linhas: magnificação × k; colunas:
+- `notebooks/04_resultados.ipynb`: tabela central (linhas: magnificação × k; colunas:
   HM em P-IMG, P-MIX e P-PAC, Δ_total, Δ_V1, Δ_V2, Δ%); gráfico HM × k-shot (uma
   linha por protocolo, um painel por magnificação, no estilo da Fig. 6 do artigo);
   a mesma análise com a acurácia balanceada por paciente; e a exposição × AUC no P-IMG.

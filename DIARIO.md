@@ -39,3 +39,23 @@ Formato: data · o que rodou · resultado · decisão.
   seção 5), com detalhes na seção 4.2; P3 e P4 atualizadas.
 - **Falta:** decidir D19 a D22, os k-shots e o k_tst; depois, fechar a Etapa 2 com o
   merge da branch `staging`.
+
+## 07/10/2026 — Etapa 2: decisões sobre pacientes e limpeza da base
+
+- **Decisões:**
+  - **D21:** paciente = número de registro sem as letras de seção. Pastas com o
+    mesmo número (ex. 22549AB, CD e G) são fragmentos da mesma peça cirúrgica, logo
+    do mesmo paciente. Justificativa completa no PROJETO.md, seção 4.2-B.
+  - **D19:** 14-13412 (mesmas imagens em DC e LC) mantido só em LC.
+  - **D20:** deduplicar as imagens repetidas. Conferido: nenhuma imagem se repete
+    entre benigno e maligno; se houvesse, sairia das duas classes.
+  - **D22:** 14-21998 (F/PT) e 14-29960 (A/F) perdem as imagens de F.
+- **Rodou:** pipeline de dados reorganizado em três passos: `build_csv.py` gera o
+  `breakhis_raw.csv` (com `classe` benign/malignant, `id_subtipo`, `des_subtipo`,
+  `id_paciente`, `secao` e `rgb_hash`); o `01_eda.ipynb` explora o CSV bruto; o novo
+  `02_clear_csv.ipynb` aplica D19 a D22 e grava o `breakhis.csv` limpo.
+- **Resultado:** 7.458 imagens usadas (de 7.909) e 70 pacientes. Removidas: D22 = 326,
+  D19 = 123, D20 = 2.
+- **Atenção para a Etapa 3:** o F ficou com 5 pacientes; com no mínimo 2 em mval e 2 em
+  mtst, sobra 1 no meta-treino (P2).
+- **Falta:** k-shots e k_tst (P3, P4); depois, o merge da `staging` na `main`.

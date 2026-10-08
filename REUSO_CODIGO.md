@@ -62,13 +62,13 @@ em `../meta-cxr`).
 
 | Peça | Arquivo sugerido | Função |
 |---|---|---|
-| CSV do BreakHis | `scripts/build_csv.py` | Extrai `classe, subtipo, paciente, magnificacao, seq` do nome do arquivo |
+| CSV do BreakHis | `scripts/build_csv.py` → `notebooks/02_clear_csv.ipynb` | CSV bruto extraído do nome dos arquivos (com hash dos pixels) e, depois, o CSV limpo |
 | Divisões por paciente e por imagem com tamanhos pareados | `src/splits.py` | Seção 6.3 do `PROJETO.md` |
 | Amostrador com `group_by_patient` | `src/episodes.py` | Support e query em pacientes disjuntos; devolve os IDs dos pacientes |
 | Métricas novas | `src/metrics.py` | Acurácia por imagem, acurácia balanceada por paciente, `frac_V1`, `frac_V2` |
 | Cache de embeddings | `src/embeddings.py` | Pré-calcula e guarda os embeddings por checkpoint |
 | Testes anti-vazamento | `tests/test_splits.py`, `tests/test_episodes.py` | Seção 12 do `PROJETO.md` |
-| Contraprova | `notebooks/02_contraprova.ipynb` | Regressão logística do scikit-learn sobre os mesmos embeddings e episódios |
+| Contraprova | `notebooks/03_contraprova.ipynb` | Regressão logística do scikit-learn sobre os mesmos embeddings e episódios |
 | Grade de experimentos | `scripts/run_grid.py` + `configs/grid.yaml` | Roda e retoma a grade, sem refazer o que já existe |
 
 ## 5. Estrutura sugerida do novo repositório
@@ -82,7 +82,8 @@ breakhis_fsl_quantification/
 │   └── grid.yaml           # magnificações, protocolos, k-shots, sementes
 ├── data/                   # fora do Git
 │   ├── BreaKHis_v1/
-│   ├── breakhis.csv
+│   ├── breakhis_raw.csv    # build_csv.py
+│   ├── breakhis.csv        # 02_clear_csv.ipynb
 │   └── splits/
 ├── docs/                   # worktree da branch órfã docs
 │   ├── CLAUDE.md
@@ -91,8 +92,9 @@ breakhis_fsl_quantification/
 │   └── DIARIO.md
 ├── notebooks/
 │   ├── 01_eda.ipynb
-│   ├── 02_contraprova.ipynb
-│   └── 03_resultados.ipynb
+│   ├── 02_clear_csv.ipynb
+│   ├── 03_contraprova.ipynb
+│   └── 04_resultados.ipynb
 ├── scripts/
 │   ├── build_csv.py
 │   └── run_grid.py
