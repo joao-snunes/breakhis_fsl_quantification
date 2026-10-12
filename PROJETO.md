@@ -242,6 +242,10 @@ seen com 20% dos pacientes por etapa, mínimo de 2):
 - Adenose (2 pacientes): a 100× só 51% dos sorteios funcionam com k ≤ 10, e nenhum
   com k = 20.
 - Um paciente de DC tem só 1 imagem a 40×.
+- **Com k_tst = 10** (simulação sobre as divisões reais, 5 sementes × 4
+  magnificações × mval/mtst, testando **todas** as ordens de pacientes): k = 1, 5 e
+  10 são viáveis em 100% das 40 combinações; k = 15 só em 18 de 40 e é impossível
+  em uma (TA, mtst, 100×, semente 2026). Daí as decisões D27 e D28 (seção 6.4).
 - **Consequência da D22 para a Etapa 3:** o F ficou com 5 pacientes. Com no mínimo 2
   na meta-validação e 2 no meta-teste, sobra **1 paciente de F no meta-treino** (ver P2).
 
@@ -277,6 +281,14 @@ seen com 20% dos pacientes por etapa, mínimo de 2):
 | D24 | Divisão entre magnificações | O sorteio de pacientes depende só da semente: **o mesmo nas 4 magnificações**, para não confundir o efeito da magnificação com o da divisão | [DECIDIDO] |
 | D25 | Arquivo das divisões | `data/splits/seed{S}.csv`, uma linha por imagem: `path, id_paciente, id_subtipo, magnificacao, etapa_pac, etapa_img` | [DECIDIDO] |
 | D26 | Nome do grupo benigno/maligno | Coluna `malignidade`; no few-shot, "classe" é sempre o **subtipo** | [DECIDIDO] |
+| D27 | k-shots avaliados (P3) | **{1, 5, 10}**. k = 15 e k = 20 excluídos por inviabilidade no P-PAC (justificativa na seção 6.4) | [DECIDIDO] |
+| D28 | Tamanho do query (P4) | **k_tst = 10** imagens por classe (artigo: 30) | [DECIDIDO] |
+| D29 | Episódios pareados entre protocolos | O episódio nº i usa as **mesmas classes** em P-IMG, P-MIX e P-PAC; muda só a origem das imagens | [DECIDIDO] |
+| D30 | Episódios da meta-validação | As **mesmas 100 tarefas** em todas as épocas (o original sorteia novas a cada época) | [DECIDIDO] |
+| D31 | Sementes dos episódios | Gerados na hora, com gerador derivado da semente da rodada: `default_rng([semente, magnificação, etapa, k, episódio])`; sem o protocolo (pareamento) e sem a época (mval fixa). IDs dos pacientes gravados nos resultados | [DECIDIDO] |
+| D32 | k da meta-validação | **k = 5, k_tst = 10** nos episódios do early stopping (o original usa 30/30) | [DECIDIDO] |
+| D33 | Formato dos resultados | CSVs em `results/` (sem MLflow): por época no treino, por episódio no mtst e auditoria de pacientes (seção 8.4) | [PADRÃO] |
+| D34 | Episódios da mval de cada backbone | Backbone da divisão por paciente: early stopping com episódios **por paciente**; da divisão por imagem: **por imagem** (como o original). Cada protocolo é seguido de ponta a ponta. Ver seção 6.4 | [DECIDIDO] |
 
 ---
 
@@ -331,8 +343,80 @@ do episódio (V1).
 - **Por paciente (P-PAC):** para cada classe do episódio, embaralhar os pacientes
   daquela classe na etapa; alocar pacientes ao support até ter k imagens; sortear
   as k imagens do support entre eles; sortear as k_tst do query **apenas entre os
-  pacientes restantes**. Se não houver imagens suficientes, registrar e tratar
-  (ressortear ou reduzir k_tst), nunca violar a regra.
+  pacientes restantes**. Com os k da D27 isso é sempre possível; se algum dia não
+  for, é erro (o código para com `assert`), nunca se viola a regra.
+
+### 6.4 Episódios: regras e justificativas (texto-base para a metodologia)
+
+**Formato.** Cada episódio tem 3 classes (2 seen e 1 unseen da etapa, D11), k imagens
+por classe no support e k_tst = 10 no query (D28). O support treina uma cabeça linear
+nova sobre o backbone congelado; o query mede AUC seen, AUC unseen e HM.
+
+**k-shots avaliados: {1, 5, 10} (D27).** No protocolo por paciente, cada classe do
+episódio precisa de pacientes que somem k imagens no support e de **outros** pacientes
+que somem k_tst = 10 no query. As classes TA, MC e adenose têm apenas 2 pacientes em
+mval ou mtst (D23), com 12 a 20 imagens por paciente em algumas magnificações. A
+viabilidade foi verificada sobre as divisões reais (5 sementes × 4 magnificações ×
+mval/mtst = 40 combinações), testando todas as ordens possíveis de sorteio dos pacientes:
+
+| k | Combinações em que todas as classes são sempre viáveis |
+|---|---|
+| 1, 5, 10 | 40 de 40 |
+| 15 | 18 de 40 (e uma impossível: TA, mtst, 100×, semente 2026) |
+| 20 | ainda menos (já crítico com k_tst = 15, seção 4.3) |
+
+Avaliar k = 15 exigiria uma de duas saídas, ambas ruins para a comparação:
+(a) **ressortear** os episódios inviáveis, o que, numa classe com 2 pacientes, força
+sempre o paciente maior no support e o menor no query, de modo que a AUC dessa classe
+passa a medir um único paciente, além de a classe aparecer menos vezes; ou
+(b) **descartar** combinações, deixando a grade desigual entre sementes e magnificações.
+Por isso k foi limitado a {1, 5, 10}, valores com os quais o sorteio por paciente é
+sempre possível, sem ressorteio e sem descarte. A exclusão é também um **achado**: com
+poucos pacientes por classe, o número de exemplos por classe que se pode usar sem
+vazamento é limitado pela própria base, algo que a avaliação por imagem esconde.
+
+**Episódios pareados (D29).** O episódio nº i sorteia as mesmas classes nos três
+protocolos; muda apenas de onde vêm as imagens (divisão por imagem ou por paciente,
+sorteio dentro do episódio por imagem ou por paciente). Assim, a diferença entre
+protocolos não se mistura com a variação de "quais classes caíram" (combinações como
+MC × TA tendem a ser mais difíceis que DC × F), e a diferença pode ser testada por
+episódio (teste pareado, ex.: Wilcoxon). É o equivalente a comparar dois modelos nos
+mesmos folds de uma validação cruzada.
+
+**Meta-validação com tarefas fixas (D30).** O early stopping compara a HM média da
+meta-validação entre épocas. Com tarefas sorteadas de novo a cada época (como no
+código original), parte dessa diferença viria da sorte do sorteio, e não da mudança
+do backbone; com classes de 2 pacientes por etapa, esse ruído é grande e pode
+antecipar a parada ou escolher uma época "de sorte". Por isso as mesmas 100 tarefas
+são usadas em todas as épocas. O custo é que o checkpoint fica escolhido para essas
+100 tarefas; o meta-teste, separado, não é afetado.
+
+**k da meta-validação: 5 (D32).** O backbone é treinado uma vez e avaliado em todos
+os k (seção 7), então o early stopping usa um único k. O original usa 30, inviável no
+BreakHis. k = 5 é o valor central da grade e é sempre viável:
+
+| k na mval | Efeito |
+|---|---|
+| 1 | Cada cabeça aprende com 1 imagem por classe: a HM de cada episódio varia muito, e a média de 100 episódios oscila entre épocas por acaso. O early stopping fica errático (pode parar cedo ou escolher uma época de sorte), e o checkpoint é escolhido para o regime mais difícil |
+| **5** | Ruído intermediário; checkpoint escolhido para o meio da grade {1, 5, 10} |
+| 10 | HM mais estável e early stopping mais confiável, mas o checkpoint é escolhido para o regime mais fácil e pode não ser o melhor para k = 1 |
+
+O custo computacional é praticamente o mesmo nos três casos (a cabeça treina sobre
+embeddings pré-calculados). O impacto se limita à **escolha da época**: o treino do
+backbone em si não depende do k.
+
+**Sementes (D31).** Cada rodada tem uma semente (a mesma da divisão, D13), e dela se
+derivam geradores independentes por finalidade, por exemplo
+`np.random.default_rng([semente, magnificação, etapa, k, episódio])`. Isso torna cada
+episódio reprodutível e independente dos demais (mudar k ou gerar mais episódios não
+altera os outros); como o protocolo não entra no gerador, as classes coincidem entre
+protocolos (D29), e como a época não entra, a mval se repete (D30).
+
+**Episódios da mval de cada backbone (D34).** O backbone da divisão por
+paciente (usado por P-PAC e P-MIX) faz early stopping com episódios por paciente; o
+da divisão por imagem (P-IMG), com episódios por imagem, como o artigo. Assim cada
+protocolo é seguido de ponta a ponta, incluindo uma validação que, no P-IMG, também
+tem vazamento e pode favorecer épocas mais tardias.
 
 ---
 
@@ -342,8 +426,7 @@ do episódio (V1).
 
 - Protocolo: P-IMG, P-MIX, P-PAC.
 - Magnificação: 40×, 100×, 200×, 400× (cada uma é um experimento independente).
-- k-shot: {1, 5, 10, 20}. **[PENDENTE]**: confirmar a viabilidade na análise
-  exploratória (seção 10).
+- k-shot: {1, 5, 10} (D27; k = 15 e 20 excluídos por inviabilidade, seção 6.4).
 
 **Fixos:** BatchBased, MobileNetV3-Small-0.75, 3-way com 1 unseen, 384×384, sem
 augmentation e hiperparâmetros da seção 9.
@@ -356,7 +439,8 @@ entre etapas). Portanto:
 - pré-treinos = 4 magnificações × 2 divisões (por imagem, por paciente) × S sementes
   → com S = 5, são **40 pré-treinos** (cerca de 650 a 700 imagens de meta-treino cada a 40×: ~50% das ~1.350 imagens seen, porque o mínimo de 2 pacientes em mval/mtst pesa nas classes pequenas;
   devem levar minutos com a MobileNet);
-- avaliações = 4 magnificações × 3 protocolos × 4 k-shots × S sementes × 1.000 episódios.
+- avaliações = 4 magnificações × 3 protocolos × 3 k-shots × S sementes × 1.000 episódios
+  (com S = 5, 180.000 episódios, cada um uma cabeça linear sobre embeddings).
 
 **Atalho de implementação (exato):** na adaptação, o backbone fica congelado e em
 modo `eval`, e não há augmentation. Então o embedding de cada imagem é sempre o
@@ -411,7 +495,16 @@ vazamento existiu, e permitem relacionar a AUC do episódio com a exposição.
 
 ### 8.4 Formato dos resultados
 
-Um CSV por avaliação, **uma linha por episódio**, com as colunas:
+Arquivos em `results/` (D33), sem MLflow: são poucos treinos e o pandas basta.
+
+| Nível | Arquivo | Uma linha por |
+|---|---|---|
+| Treino | `results/treino/{mag}_{divisao}_seed{S}/epocas.csv` (+ `melhor.pt` e `config.json` com constantes, semente, dispositivo, versões e commit) | época: perda do mtrn, HM/AUCs da mval, se foi a melhor, tempo |
+| Avaliação | `results/mtst/{mag}_seed{S}.csv` | episódio × protocolo × k (colunas abaixo) |
+| Auditoria | `results/mtst/{mag}_seed{S}_pacientes.csv` | paciente × papel (support/query) em cada episódio |
+
+A mval é guardada só agregada por época (diagnóstico do treino); o mtst, por episódio,
+porque dele saem a nota final, os ICs e o teste pareado. Colunas da avaliação:
 `magnificacao, protocolo, semente, k_shot, episodio, classes_seen, classes_unseen,
 auc_seen, auc_unseen, hm, acc_img, acc_bal_img, acc_bal_pac, frac_V1, frac_V2`,
 mais a AUC por classe. Guardar também os IDs dos pacientes do support e do query
@@ -440,8 +533,8 @@ one-vs-rest** sobre o embedding.
 - Cabeça com 4 saídas (as classes seen DC, F, MC, TA).
 - **Backbone e cabeça treinados juntos**, em lotes convencionais das imagens de
   meta-treino.
-- Ao fim de cada época: avaliar 100 episódios de meta-validação (fase 2) e calcular
-  a HM média.
+- Ao fim de cada época: avaliar as **mesmas** 100 tarefas de meta-validação (D30),
+  com k = 5 e k_tst = 10 (D32), e calcular a HM média.
 - Early stopping pela HM da meta-validação (paciência de 10) e guardar o melhor
   checkpoint.
 - A cabeça de 4 saídas é **descartada**; segue só o backbone.
@@ -466,7 +559,9 @@ one-vs-rest** sobre o embedding.
 | Otimizador do meta-treino | AdamW, lr 1e-4 | Tabela 3 / `batchbased.py` |
 | Épocas máximas | 150 | Tabela 3 |
 | Early stopping | HM da meta-validação, paciência 10 | Tabela 3 |
-| Episódios de meta-validação | 100 por época | Tabela 3 |
+| Episódios de meta-validação | 100 por época, sempre as mesmas tarefas | Tabela 3 / D30 |
+| k / k_tst da meta-validação | 5 / 10 (artigo: 30 / 30) | D32 |
+| k / k_tst do meta-teste | {1, 5, 10} / 10 (artigo: 30) | D27, D28 |
 | Episódios de meta-teste | 1.000 (artigo: 10.000) | D12 |
 | Adaptação: passos / fração / lr | 100 / 0,5 / **0,005** | `batchbased.py` (D10) |
 | Perda | `BCEWithLogitsLoss` | `base.py` |
@@ -499,8 +594,8 @@ frase neutra.
 |---|---|---|---|
 | P1 | ~~Contagem real de pacientes por subtipo~~ | Resolvida na Etapa 2 (seção 4.1) | — |
 | P2 | ~~Pacientes por etapa nas classes seen~~ | Resolvida: D23 | — |
-| P3 | k-shots viáveis por magnificação | Simulação em 4.3: k = 20 crítico para TA, MC e A | {1, 5, 10}; decidir sobre o 20 |
-| P4 | Tamanho do query (k_tst) | É o gargalo em MC, TA e A (4.3); avaliar k_tst menor ou ressorteio | 15 por classe (artigo: 30) |
+| P3 | ~~k-shots viáveis~~ | Resolvida: D27 | — |
+| P4 | ~~Tamanho do query~~ | Resolvida: D28 | — |
 | P5 | ~~Anomalias nos IDs de paciente~~ | Resolvida: D19 a D22 (seção 4.2) | — |
 | P6 | Agregação entre sementes | Escolher a forma de IC entre sementes | Média ± desvio padrão das sementes, mais o IC dos episódios |
 
@@ -552,8 +647,9 @@ Cada etapa tem um **entregável** e um **critério de pronto**. Não avançar se
 - **Pronto quando:** os testes `tests/test_splits.py` passam (seção 12).
 
 ### Etapa 4: Amostrador de episódios
-- `src/episodes.py`: `sample_episode(df_etapa, seen, unseen, n_way, n_unseen,
-  k, k_tst, group_by_patient, rng)` → support e query com os IDs dos pacientes.
+- `src/episodes.py`: sorteia um episódio (classes, support e query, com os IDs dos
+  pacientes) a partir de uma divisão (`etapa_pac` ou `etapa_img`), com sorteio por
+  imagem ou por paciente; regras da seção 6.4 (D27 a D32).
 - **Pronto quando:** os testes `tests/test_episodes.py` passam e 1.000 episódios de
   cada configuração são gerados sem erro.
 

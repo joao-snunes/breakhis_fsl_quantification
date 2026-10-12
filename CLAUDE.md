@@ -97,6 +97,8 @@ breakhis_fsl_quantification/   ← branch main (código)
 
 - Python 3.12, `torch`, `torchvision`, `timm`, `torchmetrics`, `pandas`, `numpy`,
   `scikit-learn`, `matplotlib`, `tqdm`, `pytest`.
+- Funções internas de um módulo (usadas só por ele) levam prefixo `_`
+  (ex.: `_sorteia_pacientes`); sem prefixo, só a interface pública.
 - Dados em `data/` e resultados em `results/`, ambos fora do Git.
 - Resultados: CSV com **uma linha por episódio** (colunas na seção 8.4 do `PROJETO.md`).
 - Siglas: `mtrn`, `mval`, `mtst` (etapas); `P-IMG`, `P-MIX`, `P-PAC` (protocolos);

@@ -81,3 +81,29 @@ Formato: data · o que rodou · resultado · decisão.
   - No P-IMG, 100% dos pacientes seen ficam em mais de uma etapa (vazamento V2 em
     todos), com os mesmos totais de imagens do P-PAC.
 - **Falta:** k-shots e k_tst (P3, P4), antes da Etapa 4 (episódios).
+
+## 12/10/2026 — Etapa 4 (decisões): episódios
+
+- **Rodou:** viabilidade exaustiva do P-PAC sobre as divisões reais (5 sementes × 4
+  magnificações × mval/mtst, todas as ordens de pacientes) para k ∈ {1, 3, 5, 10, 15}
+  com k_tst = 10; leitura do `EpisodeSampler` e do `args.py` do `meta-cxr`.
+- **Resultado:**
+  - k = 1, 5 e 10: viáveis em 40 de 40 combinações; k = 15: em 18 de 40, e
+    impossível em uma (TA, mtst, 100×, semente 2026).
+  - Ressortear episódios inviáveis (o que o original faz) concentraria o query de
+    classes com 2 pacientes sempre no mesmo paciente.
+  - O original usa k = 30 / k_tst = 30 na mval e sorteia episódios novos por época.
+- **Decisões:** D27 (k ∈ {1, 5, 10}; k = 15 e 20 excluídos e justificados), D28
+  (k_tst = 10), D29 (episódios pareados entre protocolos), D30 (mval com as mesmas
+  100 tarefas), D31 (geradores derivados da semente da rodada), D32 (k = 5 na mval),
+  D33 (resultados em CSV). Texto de metodologia na seção 6.4.
+- **D34:** a mval de cada backbone usa o mesmo estilo do seu protocolo (por paciente
+  na divisão por paciente; por imagem na divisão por imagem), de ponta a ponta.
+- **Implementação:** `src/episodes.py` (sorteio por imagem ou por paciente, geradores
+  derivados de [semente, magnificação, etapa, k, episódio]) e `tests/test_episodes.py`
+  (6 testes; 14 no total passam). 1.000 episódios por configuração em todas as
+  sementes (186 mil) gerados sem erro, cerca de 2,6 ms cada.
+- **Exposição ao vazamento no mtst a 100×** (média de 200 episódios × 5 sementes):
+  P-IMG tem frac_V2 = 66,7% (todo o query das 2 classes seen vem de pacientes do mtrn)
+  e frac_V1 de 22% (k = 1) a 76% (k = 10); P-MIX tem frac_V2 = 0, mas frac_V1 maior
+  (40% a 93%), porque a etapa concentra poucos pacientes por classe; P-PAC, 0 e 0.
