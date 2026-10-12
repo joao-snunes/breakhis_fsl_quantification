@@ -24,7 +24,7 @@ SEEN = ["DC", "F", "MC", "TA"]
 UNSEEN = {"mval": ["A", "LC"], "mtst": ["PT", "PC"]}
 
 
-def sorteia_pacientes(df, rng):
+def _sorteia_pacientes(df, rng):
     """Permuta pacientes das classes SEEN e distribui entre mtrn, mval e mtst.
     Marca pacientes das classes UNSEEN para suas respectivas etapas.
     """
@@ -40,7 +40,7 @@ def sorteia_pacientes(df, rng):
     return etapa
 
 
-def sorteia_imagens(df, rng):
+def _sorteia_imagens(df, rng):
     """Gera coluna P_IMG usada para a etapa onde é desconsiderado o paciente.
     Embaralha os rótulos de etapa_pac dentro de cada (subtipo seen, magnificação).
     Os tamanhos por etapa continuam os mesmos;
@@ -54,8 +54,8 @@ def sorteia_imagens(df, rng):
 def split(df, seed):
     rng = np.random.default_rng(seed)
     out = df[["path", "id_paciente", "id_subtipo", "magnificacao"]].copy()
-    out["etapa_pac"] = out.id_paciente.map(sorteia_pacientes(df, rng))
-    out["etapa_img"] = sorteia_imagens(out, rng)
+    out["etapa_pac"] = out.id_paciente.map(_sorteia_pacientes(df, rng))
+    out["etapa_img"] = _sorteia_imagens(out, rng)
 
     # regra 1: nenhum paciente em duas etapas
     assert (out.groupby("id_paciente").etapa_pac.nunique() == 1).all(), "paciente em duas etapas"
