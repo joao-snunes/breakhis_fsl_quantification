@@ -56,6 +56,9 @@ breakhis_fsl_quantification/   ← branch main (código)
 - O dispositivo é escolhido por `src/device.py` (`auto`: cuda → mps → directml →
   cpu). O ROCm aparece no PyTorch como `cuda`. Nunca usar `.cuda()` fixo.
 - Precisão padrão **fp32**; bf16/`GradScaler` só como opção em CUDA.
+- Memória: `get_device(max_memory_usage=0.75, allow_swap=False)` limita a memória da GPU
+  (erro em vez de swap). Lote de 64 a 700×456 não cabe no M1: o meta-treino usa
+  micro-lotes (`micro_batch_size`, padrão 16) com acumulação de gradientes (D42, D43).
 - Ambiente gerenciado com **uv**, Python 3.12 (`uv sync`, `uv run ...`).
 
 ## Regras inegociáveis

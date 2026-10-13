@@ -65,8 +65,8 @@ em `../meta-cxr`).
 | CSV do BreakHis | `scripts/build_csv.py` → `notebooks/02_clear_csv.ipynb` | CSV bruto extraído do nome dos arquivos (com hash dos pixels) e, depois, o CSV limpo |
 | Divisões por paciente e por imagem com tamanhos pareados | `src/splits.py` | Seção 6.3 do `PROJETO.md` |
 | Amostrador com `group_by_patient` | `src/episodes.py` | Support e query em pacientes disjuntos; devolve os IDs dos pacientes |
-| Métricas novas | `src/metrics.py` | Acurácia por imagem, acurácia balanceada por paciente, `frac_V1`, `frac_V2` |
-| Cache de embeddings | `src/embeddings.py` | Pré-calcula e guarda os embeddings por checkpoint |
+| Métricas novas | `src/adapt.py` | Acurácia por imagem, acurácia balanceada por paciente, `frac_V1`, `frac_V2` |
+| Embeddings pré-calculados | `src/model.py` | Pré-calcula e guarda os embeddings por checkpoint |
 | Testes anti-vazamento | `tests/test_splits.py`, `tests/test_episodes.py` | Seção 12 do `PROJETO.md` |
 | Contraprova | `notebooks/03_contraprova.ipynb` | Regressão logística do scikit-learn sobre os mesmos embeddings e episódios |
 | Grade de experimentos | `scripts/run_grid.py` | Roda e retoma a grade, sem refazer o que já existe |
@@ -97,14 +97,13 @@ breakhis_fsl_quantification/
 │   └── run_grid.py
 ├── src/
 │   ├── device.py           # cuda/ROCm → mps → directml → cpu
-│   ├── data.py             # Dataset BreakHis + cache de imagens
+│   ├── cache.py            # gera/carrega data/cache/{mag}.npz (700×456 nativa, uint8)
 │   ├── splits.py
 │   ├── episodes.py
-│   ├── model.py
-│   ├── train.py            # meta-treino + meta-validação + early stopping
-│   ├── adapt.py            # adaptação por episódio + métricas → CSV
-│   ├── embeddings.py
-│   └── metrics.py
+│   ├── model.py            # backbone + normalização + embeddings
+│   ├── adapt.py            # um episódio: cabeça nova + métricas
+│   ├── train.py            # meta-treino + mval + early stopping (nunca lê o mtst)
+│   └── evaluate.py         # nota final no mtst → CSVs
 ├── tests/
 │   ├── test_splits.py
 │   └── test_episodes.py

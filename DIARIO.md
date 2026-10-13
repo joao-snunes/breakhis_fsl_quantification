@@ -107,3 +107,21 @@ Formato: data · o que rodou · resultado · decisão.
   P-IMG tem frac_V2 = 66,7% (todo o query das 2 classes seen vem de pacientes do mtrn)
   e frac_V1 de 22% (k = 1) a 76% (k = 10); P-MIX tem frac_V2 = 0, mas frac_V1 maior
   (40% a 93%), porque a etapa concentra poucos pacientes por classe; P-PAC, 0 e 0.
+
+## 13/10/2026 — Etapa 5 (decisões)
+
+- **Decisões:** D35 (entrada na resolução nativa 700×456; riscos na seção 9.6), D36
+  (cache em disco, uma vez), D37 (lote da adaptação fiel ao original; k = 1 → 1 imagem
+  por passo), D38 (avaliar a época 0, só ImageNet), D39 (sem balanceamento), D40
+  (arquivos `cache`, `model`, `adapt`, `train`, `evaluate`), D41 (qualquer máquina;
+  dispositivo no `config.json`; uma rodada numa máquina só; sem benchmark).
+- **Achado:** 74 imagens (paciente 14-12465, PC) têm 700×456, não 700×460; as de 460
+  perdem 2 linhas em cima e 2 embaixo para todas ficarem 700×456 sem interpolação.
+- **Rodou:** `src/cache.py` (cache de 1,6 a 1,9 GB por magnificação, ~1 min, carrega em
+  0,7 s) e `tests/test_cache.py`.
+- **Custo no M1:** lote de 64 a 700×456 não cabe na memória da GPU; o macOS foi para o
+  swap (15 GB) e o passo levou 78 s. Com lote de 16: 0,56 s por passo (2× o de 384×384) e
+  3,5 GB. Daí D42 (`get_device(max_memory_usage=0.75, allow_swap=False)`, testado: erro
+  em vez de swap) e D43 (lote efetivo de 64 em micro-lotes configuráveis,
+  `micro_batch_size`, padrão 16). Estimativa: ~1 min por época, ~1 a 1,5 dia para os 40
+  treinos.

@@ -269,7 +269,7 @@ seen com 20% dos pacientes por etapa, mínimo de 2):
 | D12 | Episódios | 100 na meta-validação (por época) e 1.000 no meta-teste | [PADRÃO] |
 | D13 | Sementes | 3 a 5 **divisões de pacientes** diferentes (a semente controla split, pré-treino e episódios) | [PADRÃO] |
 | D14 | Protocolo P-MIX | Incluir (custo baixo, decompõe o vazamento) | [PADRÃO] |
-| D15 | Resolução | Redimensionar 700×460 → **384×384**; normalização do `pretrained_cfg` do modelo (média 0,5 e desvio 0,5 no `tf_mobilenetv3_small_075`) | [PADRÃO] |
+| D15 | Resolução | **Resolução nativa 700×456**, sem redimensionar (D35); normalização do `pretrained_cfg` do modelo (média 0,5 e desvio 0,5 no `tf_mobilenetv3_small_075`) | [PADRÃO] |
 | D16 | Data augmentation | **Desligada** (padrão do código original) | [PADRÃO] |
 | D17 | Magnificações misturadas | Só como extra opcional (expõe o vazamento V3) | [PADRÃO] |
 | D18 | Hardware e precisão | Sem GPU NVIDIA: macOS (M1, MPS) e Windows (AMD RX 7600, ROCm ou DirectML). Dispositivo escolhido em `src/device.py` (cuda/ROCm → mps → directml → cpu), precisão **fp32** (bf16 só como opção em CUDA) | [DECIDIDO] |
@@ -289,6 +289,15 @@ seen com 20% dos pacientes por etapa, mínimo de 2):
 | D32 | k da meta-validação | **k = 5, k_tst = 10** nos episódios do early stopping (o original usa 30/30) | [DECIDIDO] |
 | D33 | Formato dos resultados | CSVs em `results/` (sem MLflow): por época no treino, por episódio no mtst e auditoria de pacientes (seção 8.4) | [PADRÃO] |
 | D34 | Episódios da mval de cada backbone | Backbone da divisão por paciente: early stopping com episódios **por paciente**; da divisão por imagem: **por imagem** (como o original). Cada protocolo é seguido de ponta a ponta. Ver seção 6.4 | [DECIDIDO] |
+| D35 | Formato da entrada | **Resolução nativa 700×456** (largura × altura), sem redimensionar; as imagens de 460 perdem 2 linhas em cima e 2 embaixo para igualar às 74 de 456. Sem recorte lateral, sem bordas, sem deformação. Custo e riscos na seção 9.6 | [DECIDIDO] |
+| D36 | Cache de imagens | Gerado **uma vez** em disco: `data/cache/{mag}.npz` (uint8, com a lista de caminhos), por `src/cache.py` | [DECIDIDO] |
+| D37 | Lote da adaptação | Fiel ao original: `max(1, int(0,5 · n_support))` por passo. Com k = 1 (3 imagens no support), cada passo usa 1 imagem | [DECIDIDO] |
+| D38 | Época 0 | Avaliar a mval com o backbone só do ImageNet, antes do meta-treino: linha de base de quanto o meta-treino ajuda | [DECIDIDO] |
+| D39 | Desequilíbrio no meta-treino | Mantido (o DC é ~60% do mtrn), sem pesos por classe, como no original (método fixo) | [DECIDIDO] |
+| D40 | Arquivos da Etapa 5 | `cache.py` (gera e carrega o cache), `model.py` (backbone e embeddings), `adapt.py` (um episódio: cabeça nova + métricas), `train.py` (meta-treino + mval + early stopping; nunca lê o mtst), `evaluate.py` (nota final no mtst → CSVs) | [DECIDIDO] |
+| D41 | Máquina de execução | Qualquer uma (`get_device`); o dispositivo vai para o `config.json`. Os dois backbones de uma rodada (semente, magnificação) são treinados na mesma máquina. Sem comparação de hardware | [DECIDIDO] |
+| D42 | Limite de memória | `get_device(max_memory_usage=0.75, allow_swap=False)`: fração máxima da memória da GPU (MPS: do *working set* recomendado; CUDA/ROCm: da VRAM). Passar do limite gera erro de falta de memória em vez de deixar a máquina lenta. `allow_swap=True` remove o limite no MPS (o macOS pode usar o disco). DirectML e CPU: sem controle | [DECIDIDO] |
+| D43 | Micro-lotes no meta-treino | Lote **efetivo** de 64 (método fixo), formado por micro-lotes com acumulação de gradientes. **Configurável:** parâmetro `micro_batch_size` do `train.py` (padrão 16; precisa dividir 64). `micro_batch_size=64` = lote único, sem acumulação. Ressalva da BatchNorm na seção 9.6 | [DECIDIDO] |
 
 ---
 
@@ -552,10 +561,10 @@ one-vs-rest** sobre o embedding.
 
 | Parâmetro | Valor | Origem |
 |---|---|---|
-| Resolução | 384×384 | Tabela 3 / `args.py` |
+| Resolução | 700×456, nativa (artigo: 384×384) | D35 |
 | Normalização | `backbone.pretrained_cfg` (média 0,5, desvio 0,5 nos pesos `tf_`; não os valores clássicos do ImageNet) | `base.py` |
 | Augmentation | desligada | `args.py` (`data_aug=False`) |
-| Lote do meta-treino | 64 | Tabela 3 |
+| Lote do meta-treino | 64 efetivo; micro-lotes de `micro_batch_size` (padrão 16) com acumulação de gradientes | Tabela 3 / D43 |
 | Otimizador do meta-treino | AdamW, lr 1e-4 | Tabela 3 / `batchbased.py` |
 | Épocas máximas | 150 | Tabela 3 |
 | Early stopping | HM da meta-validação, paciência 10 | Tabela 3 |
@@ -587,6 +596,50 @@ lr da cabeça realmente usado (0,005), mencionando a divergência com a Tabela 3
 frase neutra.
 
 ---
+
+### 9.6 Formato da entrada: resolução nativa (700×456) e o que isso pode prejudicar
+
+As imagens do BreakHis têm 700×460, exceto 74 de 700×456 (paciente 14-12465, PC). O
+artigo usa 384×384, mas a MetaChest já era quadrada. As alternativas avaliadas:
+
+| Opção | Escala do tecido | Perda | Deformação | Pixels (vs. 384×384) |
+|---|---|---|---|---|
+| Esticar para 384×384 | 55% × 83% | nenhuma | sim (núcleos achatados) | 1× |
+| Recorte central 460×460 → 384×384 | 83% | 34% da área (laterais) | não | 1× |
+| Bordas até 700×700 → 384×384 | 55% | nenhuma (34% da entrada é borda) | não | 1× |
+| Proporção mantida → 584×384 | 83% | nenhuma | não | 1,5× |
+| **Resolução nativa 700×456** (escolhida) | **100%** | 4 linhas de pixel nas imagens de 460 | não | **2,2×** |
+
+A MobileNet aceita entradas não quadradas porque termina num *global average pooling*,
+que faz a média das features sobre qualquer área. Assim a imagem entra inteira, sem
+interpolação, com o tecido na escala original da captura. Em histologia isso importa:
+forma e tamanho de núcleos e arranjo das células são informação diagnóstica. Para todas
+terem o mesmo tamanho sem interpolar nenhum pixel, as imagens de 460 perdem 2 linhas
+em cima e 2 embaixo (`src/cache.py`).
+
+**Custo medido no M1 (MPS), lote de 16:** 0,56 s por passo de treino (0,28 s em
+384×384) e 0,22 s para os embeddings de 16 imagens, com 3,5 GB de memória da GPU.
+**Lote de 64 não cabe** na memória da GPU do M1: o macOS passa a usar o disco (swap) e o
+passo sobe para 78 s. Daí a D42 (limite de memória) e a D43 (micro-lotes).
+
+**O que pode prejudicar (a declarar no texto):**
+1. **Desvio do artigo:** a entrada deixa de ser 384×384, tanto no formato quanto na
+   escala; os números não são diretamente comparáveis aos da MetaChest (que, de todo
+   modo, é outra base). O próprio artigo mostra que resoluções maiores ajudam pouco e
+   custam muito; aqui a escolha é pela fidelidade ao tecido, não pelo ganho esperado.
+2. **Custo:** 2,2× mais pixels; tempo por época cerca de 2× e cache de ~1,9 GB por
+   magnificação. Estimativa: ~45 s a 1 min por época, ~1 a 1,5 dia para os 40 treinos.
+3. **Escala diferente do pré-treino:** os pesos do ImageNet foram aprendidos em fotos de
+   224×224, com objetos numa escala muito maior que a de células a 700×456. As
+   convoluções funcionam em qualquer tamanho, mas as features pré-treinadas podem
+   aproveitar menos essa escala, e a estatística do pooling final muda com a área. O
+   efeito é igual para todos os protocolos e não afeta as comparações.
+4. **Periferia do campo:** bordas da imagem, às vezes menos focadas ou com vinheta da
+   ótica do microscópio, entram na média final; num recorte central seriam descartadas.
+   Também é igual para todos os protocolos.
+5. **BatchNorm com micro-lotes (D43):** se o lote de 64 for formado por micro-lotes, a
+   BatchNorm da MobileNet normaliza pelas estatísticas de cada micro-lote, não das 64
+   imagens; a diferença é pequena e diminui com micro-lotes maiores.
 
 ## 10. Pendências
 
@@ -654,11 +707,14 @@ Cada etapa tem um **entregável** e um **critério de pronto**. Não avançar se
   cada configuração são gerados sem erro.
 
 ### Etapa 5: Modelo e treino
-- `src/model.py`: backbone `timm` + cabeça linear + `freeze_backbone()`.
-- `src/train.py`: meta-treino (lotes) + meta-validação por episódios + early stopping
-  + checkpoint do melhor backbone.
-- `src/adapt.py`: embeddings pré-calculados + adaptação da cabeça + métricas por
-  episódio → CSV.
+Em quatro passos, com revisão entre eles (D40):
+- **5a** `src/cache.py`: gera `data/cache/{mag}.npz` uma vez (D35, D36) e carrega.
+- **5b** `src/model.py` (backbone, normalização, embeddings) e `src/adapt.py` (cabeça
+  nova por episódio, D37, e todas as métricas da seção 8).
+- **5c** `src/train.py`: meta-treino em micro-lotes configuráveis (D43) + época 0 (D38) + mval com as 100 tarefas fixas +
+  early stopping → `melhor.pt`, `epocas.csv`, `config.json` (D41). Nunca lê o mtst.
+- **5d** `src/evaluate.py`: embeddings do mtst com os dois backbones da rodada e
+  3 protocolos × 3 k × 1.000 episódios → CSVs da seção 8.4.
 - **Pronto quando:** os testes de sanidade da seção 12 passam numa magnificação e
   numa semente.
 
