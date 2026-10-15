@@ -125,3 +125,20 @@ Formato: data · o que rodou · resultado · decisão.
   em vez de swap) e D43 (lote efetivo de 64 em micro-lotes configuráveis,
   `micro_batch_size`, padrão 16). Estimativa: ~1 min por época, ~1 a 1,5 dia para os 40
   treinos.
+
+## 15/10/2026 — Etapa 5b: modelo, adaptação e métricas
+
+- **Decisões:** D44 (adaptação na CPU), D45 (gerador da cabeça derivado da chave do
+  episódio, mesma inicialização nos três protocolos), D46 (só `acc_img`: com query
+  balanceado é igual à balanceada), D47 (embeddings do mtst gravados para a Etapa 6).
+- **Rodou:** `src/model.py` (backbone, normalização, embeddings), `src/adapt.py`
+  (cabeça por episódio + métricas) e `tests/test_adapt.py` (6 testes sintéticos,
+  incluindo rótulos aleatórios → HM ≈ 50 e métricas conferidas à mão).
+- **Integração com dados reais** (semente 0, 100×, mtst, k = 5, 100 episódios, backbone
+  só ImageNet, sem meta-treino): P-PAC HM 55,9 (seen 63,1, unseen 56,0); P-IMG HM 79,5
+  (seen 80,9, unseen 79,3), com frac_V1 = 0,60. Sem meta-treino o V2 não age, então a
+  diferença de ~24 pontos vem do V1: mesmo com features genéricas, a cabeça acerta muito
+  mais quando o paciente do query está no support. Indício preliminar, a confirmar com a
+  época 0 de todas as rodadas.
+- **Custo:** embeddings ~9 s para 645 imagens (MPS); adaptação ~20 ms por episódio (CPU),
+  ~1 h para os 180 mil episódios.

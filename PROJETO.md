@@ -298,6 +298,10 @@ seen com 20% dos pacientes por etapa, mínimo de 2):
 | D41 | Máquina de execução | Qualquer uma (`get_device`); o dispositivo vai para o `config.json`. Os dois backbones de uma rodada (semente, magnificação) são treinados na mesma máquina. Sem comparação de hardware | [DECIDIDO] |
 | D42 | Limite de memória | `get_device(max_memory_usage=0.75, allow_swap=False)`: fração máxima da memória da GPU (MPS: do *working set* recomendado; CUDA/ROCm: da VRAM). Passar do limite gera erro de falta de memória em vez de deixar a máquina lenta. `allow_swap=True` remove o limite no MPS (o macOS pode usar o disco). DirectML e CPU: sem controle | [DECIDIDO] |
 | D43 | Micro-lotes no meta-treino | Lote **efetivo** de 64 (método fixo), formado por micro-lotes com acumulação de gradientes. **Configurável:** parâmetro `micro_batch_size` do `train.py` (padrão 16; precisa dividir 64). `micro_batch_size=64` = lote único, sem acumulação. Ressalva da BatchNorm na seção 9.6 | [DECIDIDO] |
+| D44 | Onde roda a adaptação | **CPU**: a cabeça é pequena demais para compensar a GPU, e a CPU é determinística. Os embeddings (pesados) são calculados na GPU. ~20 ms por episódio | [DECIDIDO] |
+| D45 | Aleatoriedade da cabeça | Inicialização e sorteios de 50% por passo vêm de um gerador derivado da chave do episódio (D31), sem o protocolo: a cabeça começa com os **mesmos pesos** nos três protocolos (o pareamento da D29 vale também para a inicialização) | [DECIDIDO] |
+| D46 | Acurácia por imagem | Só `acc_img`: com o query balanceado (10 por classe), a acurácia balanceada por imagem é igual à acurácia comum | [DECIDIDO] |
+| D47 | Embeddings | Em memória durante o treino; os do mtst são gravados pelo `evaluate.py` em `results/embeddings/{mag}_{divisao}_seed{S}.npz` (~110 MB no total), para a contraprova (Etapa 6) e a auditoria | [DECIDIDO] |
 
 ---
 
@@ -489,8 +493,9 @@ Cada paciente pesa igual dentro da sua classe, e cada classe pesa igual no total
 Corrige o desequilíbrio de imagens por paciente **e** de pacientes por classe.
 **Não remove vazamento** (isso é papel da separação).
 
-Também registrar a acurácia e a acurácia balanceada **por imagem**, para comparar a
-unidade de contagem.
+Também registrar a acurácia **por imagem** (`acc_img`), para comparar a unidade de
+contagem. Como o query tem exatamente k_tst = 10 imagens por classe, a acurácia
+balanceada por imagem é igual à acurácia comum e não é registrada à parte (D46).
 
 ### 8.3 Exposição ao vazamento (descritiva)
 
@@ -511,11 +516,12 @@ Arquivos em `results/` (D33), sem MLflow: são poucos treinos e o pandas basta.
 | Treino | `results/treino/{mag}_{divisao}_seed{S}/epocas.csv` (+ `melhor.pt` e `config.json` com constantes, semente, dispositivo, versões e commit) | época: perda do mtrn, HM/AUCs da mval, se foi a melhor, tempo |
 | Avaliação | `results/mtst/{mag}_seed{S}.csv` | episódio × protocolo × k (colunas abaixo) |
 | Auditoria | `results/mtst/{mag}_seed{S}_pacientes.csv` | paciente × papel (support/query) em cada episódio |
+| Embeddings | `results/embeddings/{mag}_{divisao}_seed{S}.npz` | imagem do mtst (vetor de 1.024 + caminho), para a contraprova e a auditoria (D47) |
 
 A mval é guardada só agregada por época (diagnóstico do treino); o mtst, por episódio,
 porque dele saem a nota final, os ICs e o teste pareado. Colunas da avaliação:
 `magnificacao, protocolo, semente, k_shot, episodio, classes_seen, classes_unseen,
-auc_seen, auc_unseen, hm, acc_img, acc_bal_img, acc_bal_pac, frac_V1, frac_V2`,
+auc_seen, auc_unseen, hm, acc_img, acc_bal_pac, frac_V1, frac_V2`,
 mais a AUC por classe. Guardar também os IDs dos pacientes do support e do query
 de cada episódio (arquivo à parte), para auditoria.
 
