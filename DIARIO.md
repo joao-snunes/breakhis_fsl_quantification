@@ -142,3 +142,18 @@ Formato: data · o que rodou · resultado · decisão.
   época 0 de todas as rodadas.
 - **Custo:** embeddings ~9 s para 645 imagens (MPS); adaptação ~20 ms por episódio (CPU),
   ~1 h para os 180 mil episódios.
+
+## 15/10/2026 — Etapa 5c: meta-treino
+
+- **Decisões:** D48 (a época 0 concorre no early stopping), D49 (o lote final incompleto
+  é usado), D50 (sem retomada; `fim` no `config.json` marca rodada completa), D51 (todas
+  as médias da mval por época), D52 (testes lentos com `@pytest.mark.slow`).
+- **Rodou:** `src/train.py` (`treina(...)`), `avalia_episodio` no `adapt.py` (usado pela
+  mval e, depois, pelo mtst) e `tests/test_train.py`: regra 2 (rápido), overfit
+  proposital com 20 imagens (teste de sanidade 7: perda < 0,05) e 2 épocas de ponta a
+  ponta (40×, semente 0, divisão por paciente). 22 testes rápidos + 2 lentos passam.
+- **Custo real:** ~37 s por época a 40× (divisão por paciente, micro-lotes de 16, MPS);
+  a época 0 (só validação) leva ~10 s.
+- **Observação:** no teste de 2 épocas, a HM da mval caiu de 57,7 (época 0) para 51,8 e
+  50,2. Ainda não diz nada (2 épocas, uma rodada), mas é para acompanhar no piloto: o
+  early stopping com a época 0 concorrendo (D48) cobre o caso de o meta-treino piorar.

@@ -302,6 +302,11 @@ seen com 20% dos pacientes por etapa, mínimo de 2):
 | D45 | Aleatoriedade da cabeça | Inicialização e sorteios de 50% por passo vêm de um gerador derivado da chave do episódio (D31), sem o protocolo: a cabeça começa com os **mesmos pesos** nos três protocolos (o pareamento da D29 vale também para a inicialização) | [DECIDIDO] |
 | D46 | Acurácia por imagem | Só `acc_img`: com o query balanceado (10 por classe), a acurácia balanceada por imagem é igual à acurácia comum | [DECIDIDO] |
 | D47 | Embeddings | Em memória durante o treino; os do mtst são gravados pelo `evaluate.py` em `results/embeddings/{mag}_{divisao}_seed{S}.npz` (~110 MB no total), para a contraprova (Etapa 6) e a auditoria | [DECIDIDO] |
+| D48 | Época 0 no early stopping | **Concorre**: se nenhuma época do meta-treino superar a HM da mval do backbone só ImageNet, o `best_model.pt` é o próprio ImageNet (e isso é um achado) | [DECIDIDO] |
+| D49 | Lote final do meta-treino | O lote incompleto do fim de cada época é usado (como o `DataLoader` padrão); a perda é ponderada pelo tamanho real | [DECIDIDO] |
+| D50 | Treino interrompido | Sem retomada: a rodada roda de novo. O `config.json` só ganha o campo `fim` ao terminar, e o `run_grid` pula só rodadas completas | [DECIDIDO] |
+| D51 | Registro da mval por época | Todas as médias das 100 tarefas: HM, AUC seen/unseen, acc_img, acc_bal_pac, frac_V1/V2 (mostra como o vazamento guia o early stopping no P-IMG) | [DECIDIDO] |
+| D52 | Testes lentos | Testes que treinam a rede levam `@pytest.mark.slow` e ficam fora do `pytest` padrão; rodam com `pytest -m slow` (ou `-m ""` para todos) antes de commitar mudanças em `cache`, `model`, `adapt` ou `train` e antes de toda PR | [DECIDIDO] |
 
 ---
 
@@ -513,7 +518,7 @@ Arquivos em `results/` (D33), sem MLflow: são poucos treinos e o pandas basta.
 
 | Nível | Arquivo | Uma linha por |
 |---|---|---|
-| Treino | `results/treino/{mag}_{divisao}_seed{S}/epocas.csv` (+ `melhor.pt` e `config.json` com constantes, semente, dispositivo, versões e commit) | época: perda do mtrn, HM/AUCs da mval, se foi a melhor, tempo |
+| Treino | `results/treino/{mag}_{divisao}_seed{S}/epocas.csv` (+ `best_model.pt` e `config.json` com constantes, semente, dispositivo, versões e commit) | época: perda do mtrn, HM/AUCs da mval, se foi a melhor, tempo |
 | Avaliação | `results/mtst/{mag}_seed{S}.csv` | episódio × protocolo × k (colunas abaixo) |
 | Auditoria | `results/mtst/{mag}_seed{S}_pacientes.csv` | paciente × papel (support/query) em cada episódio |
 | Embeddings | `results/embeddings/{mag}_{divisao}_seed{S}.npz` | imagem do mtst (vetor de 1.024 + caminho), para a contraprova e a auditoria (D47) |
@@ -717,8 +722,9 @@ Em quatro passos, com revisão entre eles (D40):
 - **5a** `src/cache.py`: gera `data/cache/{mag}.npz` uma vez (D35, D36) e carrega.
 - **5b** `src/model.py` (backbone, normalização, embeddings) e `src/adapt.py` (cabeça
   nova por episódio, D37, e todas as métricas da seção 8).
-- **5c** `src/train.py`: meta-treino em micro-lotes configuráveis (D43) + época 0 (D38) + mval com as 100 tarefas fixas +
-  early stopping → `melhor.pt`, `epocas.csv`, `config.json` (D41). Nunca lê o mtst.
+- **5c** `src/train.py`: `treina(seed, mag, divisao, micro_batch_size=16, max_memory_usage=0.75, allow_swap=False)`;
+  meta-treino em micro-lotes configuráveis (D43) + época 0, que concorre no early stopping (D38, D48) + mval com as 100 tarefas fixas +
+  early stopping → `best_model.pt`, `epocas.csv`, `config.json` (D41). Nunca lê o mtst.
 - **5d** `src/evaluate.py`: embeddings do mtst com os dois backbones da rodada e
   3 protocolos × 3 k × 1.000 episódios → CSVs da seção 8.4.
 - **Pronto quando:** os testes de sanidade da seção 12 passam numa magnificação e

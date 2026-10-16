@@ -94,6 +94,9 @@ breakhis_fsl_quantification/   ← branch main (código)
 - Comentários e docstrings em **português**; nomes de variáveis e funções podem
   ser em inglês.
 - Toda peça nova vem com uma forma de verificação (teste, `assert` ou contraprova).
+- Testes que treinam a rede levam `@pytest.mark.slow` e ficam fora do `pytest` padrão.
+  Antes de commitar mudanças em `cache.py`, `model.py`, `adapt.py`, `train.py` ou
+  `evaluate.py`, e antes de toda PR, rodar `uv run pytest -m ""` (todos os testes).
 - Ao final de cada sessão, sugira a entrada do dia para `docs/DIARIO.md`.
 
 ## Convenções
