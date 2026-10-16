@@ -84,3 +84,15 @@ def metricas(classes, y, probs, qry, pacientes_sup, pacientes_mtrn):
     por_classe = multilabel_auroc(probs, y, num_labels=3, average="none") * 100
     linha |= {f"auc_{c}": v.item() for c, v in zip(classes, por_classe)}
     return linha
+
+
+def avalia_episodio(E, linha, classes, ep, g, pacientes_mtrn):
+    """Adapta e mede um episódio a partir de embeddings já calculados.
+
+    E: embeddings (N, 1024); linha: path → linha de E; classes, ep: saída de episodes.episodio;
+    g: gerador do episódio; pacientes_mtrn: pacientes do meta-treino da divisão usada.
+    """
+    s, q = ep[ep.papel == "S"], ep[ep.papel == "Q"]
+    rotulos = lambda d: torch.eye(len(classes))[[classes.index(c) for c in d.id_subtipo]]
+    probs = adapta(E[[linha[p] for p in s.path]], rotulos(s), E[[linha[p] for p in q.path]], g)
+    return metricas(classes, rotulos(q), probs, q, set(s.id_paciente), pacientes_mtrn)
