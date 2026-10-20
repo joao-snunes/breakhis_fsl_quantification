@@ -46,7 +46,7 @@ def build(root: Path = DATA / "BreaKHis_v1") -> pd.DataFrame:
         assert pac_dir.name == f"SOB_{m['malignidade']}_{m['id_subtipo']}_{m['id_paciente']}{m['secao']}", p
         assert mal_dir.name == MALIGNIDADE[m["malignidade"]], p
         rows.append({
-            "path": str(p.relative_to(DATA)),
+            "path": p.relative_to(DATA).as_posix(),
             "malignidade": MALIGNIDADE[m["malignidade"]],
             "id_subtipo": m["id_subtipo"],
             "des_subtipo": sub_dir.name,
