@@ -35,6 +35,8 @@ def get_device(name: str = "auto", max_memory_usage: float = 0.75, allow_swap: b
     device = _escolhe(name)
     if device.type == "cuda":
         torch.cuda.set_per_process_memory_fraction(max_memory_usage)
+        if torch.version.hip:  # MIOpen do ROCm para Windows falha ao compilar a BatchNorm (gfx1102)
+            torch.backends.cudnn.enabled = False
     elif device.type == "mps":
         torch.mps.set_per_process_memory_fraction(0.0 if allow_swap else max_memory_usage)  # 0 = sem limite
     return device
