@@ -157,3 +157,24 @@ Formato: data · o que rodou · resultado · decisão.
 - **Observação:** no teste de 2 épocas, a HM da mval caiu de 57,7 (época 0) para 51,8 e
   50,2. Ainda não diz nada (2 épocas, uma rodada), mas é para acompanhar no piloto: o
   early stopping com a época 0 concorrendo (D48) cobre o caso de o meta-treino piorar.
+
+## 20/10/2026 — Windows com GPU e reprodutibilidade entre máquinas
+
+- **Decisões do 5d:** 5d-1 (avaliar também o backbone só ImageNet no mtst), 5d-2
+  (auditoria de pacientes em `.csv.gz`), 5d-3 (`config.json` da avaliação), 5d-4 e 5d-5
+  (teste de sanidade 6 com embeddings reais e a rodada completa da semente 0 a 40×,
+  ambos só com autorização explícita). Execuções pesadas passam a ser no Windows, via
+  `ssh win`, a partir da sessão do Mac.
+- **Rodou:** clone do repositório no Windows; cópia da base do Mac (7.909 imagens,
+  4,1 GB, ~5 min); pipeline de dados completo no Windows (`build_csv`, `02_clear_csv`,
+  `splits`, `cache`), com a correção `as_posix()` nos caminhos do CSV.
+- **Resultado:** conteúdo idêntico ao do Mac em todos os CSVs (hashes iguais ignorando o
+  fim de linha `\r\n`) e no cache de imagens (bit a bit). Divisões e episódios não
+  dependem da máquina; só o treino na GPU pode variar (D18).
+- **GPU (D53):** RX 7600 confirmada como `gfx1102`. Do índice estável da AMD, o par
+  `torch 2.14` + `torchvision 0.28` é incompatível; o par `2.13` + `0.28` funciona. O
+  MIOpen falha ao compilar a BatchNorm (cabeçalho ausente no pacote para Windows);
+  desligado, o PyTorch usa os próprios kernels. Lote 16 a 700×456: 0,21 s por passo
+  (2,7× o M1); lote 32: 0,44 s; lote 64 dá erro de memória imediato com o limite de 75%.
+  Estimativa: ~15 s por época, contra ~45 s a 1 min no M1. Os 22 testes rápidos passam
+  na RX 7600.

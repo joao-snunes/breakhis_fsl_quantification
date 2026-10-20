@@ -307,6 +307,7 @@ seen com 20% dos pacientes por etapa, mínimo de 2):
 | D50 | Treino interrompido | Sem retomada: a rodada roda de novo. O `config.json` só ganha o campo `fim` ao terminar, e o `run_grid` pula só rodadas completas | [DECIDIDO] |
 | D51 | Registro da mval por época | Todas as médias das 100 tarefas: HM, AUC seen/unseen, acc_img, acc_bal_pac, frac_V1/V2 (mostra como o vazamento guia o early stopping no P-IMG) | [DECIDIDO] |
 | D52 | Testes lentos | Testes que treinam a rede levam `@pytest.mark.slow` e ficam fora do `pytest` padrão; rodam com `pytest -m slow` (ou `-m ""` para todos) antes de commitar mudanças em `cache`, `model`, `adapt` ou `train` e antes de toda PR | [DECIDIDO] |
+| D53 | Ambiente do Windows (RX 7600) | PyTorch-ROCm do índice estável da AMD: `torch 2.13.0+rocm10.1.0` + `torchvision 0.28.0` (`device-gfx1102`), rodado com `UV_NO_SYNC=1`. O MIOpen dessa versão falha ao compilar a BatchNorm, e o `get_device()` o desliga quando o PyTorch é ROCm. Lote 16 a 700×456: 0,21 s por passo (M1: 0,56 s); lote 64 não cabe no limite de 75% | [DECIDIDO] |
 
 ---
 
