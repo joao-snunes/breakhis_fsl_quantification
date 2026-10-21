@@ -15,14 +15,22 @@ uv run python -m src.device   # mostra a versão do torch e o dispositivo escolh
 uv run pytest
 ```
 
-### Windows com GPU AMD
+### Windows com GPU AMD (ROCm)
 
-Duas rotas, nesta ordem de preferência:
+Receita validada numa RX 7600 (`gfx1102`), no Git Bash:
 
-1. **ROCm**: instalar as wheels de PyTorch para ROCm da AMD (projeto
-   [TheRock](https://github.com/ROCm/TheRock)) com `uv pip install`, seguindo a
-   documentação atual da AMD para a sua placa. O PyTorch-ROCm aparece como `cuda`.
-2. **DirectML** (fallback): `uv pip install torch-directml`.
+```bash
+uv sync
+uv pip install --reinstall-package torch --reinstall-package torchvision \
+  --index-url https://stable.repo.amd.com/rocm/whl-next/ \
+  "torch[device-gfx1102]==2.13.*" "torchvision[device-gfx1102]==0.28.*"
+UV_NO_SYNC=1 uv run python -m src.device   # deve mostrar "cuda"
+```
 
-Nos dois casos, o `uv run` reinstalaria o `torch` do lock; use `uv run --no-sync`
-(ou `UV_NO_SYNC=1`). Confira com `uv run --no-sync python -m src.device`.
+- Use o par `torch 2.13` + `torchvision 0.28`: no índice estável, o `torch 2.14` vem com o
+  `torchvision 0.28`, que é incompatível (`torchvision::nms does not exist`).
+- Rode sempre com `UV_NO_SYNC=1` (ou `uv run --no-sync`); sem isso, o `uv run` volta ao
+  `torch` de CPU do lock.
+- O MIOpen dessa versão falha ao compilar a BatchNorm; o `get_device()` o desliga quando o
+  PyTorch é ROCm, e o PyTorch usa os próprios kernels.
+- Para outra placa, troque `gfx1102` pela arquitetura dela.
