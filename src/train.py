@@ -76,7 +76,7 @@ def _valida(backbone, imgs_mval, linha, tarefas, pacientes_mtrn, device, seed, m
     return pd.DataFrame(linhas)[METRICAS_MVAL].mean()
 
 
-def _git():
+def git_estado():
     try:
         commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
         sujo = bool(subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True).stdout.strip())
@@ -104,7 +104,7 @@ def treina(seed, mag, divisao, micro_batch_size=16, max_memory_usage=0.75, allow
     tarefas = [episodio(split, protocolo, "mval", K_MVAL, seed, mag, i) for i in range(N_MVAL)] 
     pacientes_mtrn = set(split.id_paciente[split[coluna] == "mtrn"])
 
-    commit, sujo = _git()
+    commit, sujo = git_estado()
     config = {
         "seed": seed, "mag": mag, "divisao": divisao, "protocolo_mval": protocolo, "device": str(device),
         "micro_batch_size": micro_batch_size, "max_memory_usage": max_memory_usage, "allow_swap": allow_swap,
