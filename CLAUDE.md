@@ -97,6 +97,10 @@ breakhis_fsl_quantification/   ← branch main (código)
 - Testes que treinam a rede levam `@pytest.mark.slow` e ficam fora do `pytest` padrão.
   Antes de commitar mudanças em `cache.py`, `model.py`, `adapt.py`, `train.py` ou
   `evaluate.py`, e antes de toda PR, rodar `uv run pytest -m ""` (todos os testes).
+- Execuções pesadas (testes lentos, treinos, avaliações) rodam no Windows com GPU via
+  `ssh win` (Git Bash; `UV_NO_SYNC=1 uv run ...`; `GIT_SSH_COMMAND=ssh git ...`), **só com
+  autorização explícita do aluno** a cada vez (D57). Se algo travar lá, encerrar só o
+  processo específico, nunca todos os `git.exe`.
 - Ao final de cada sessão, sugira a entrada do dia para `docs/DIARIO.md`.
 
 ## Convenções

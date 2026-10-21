@@ -301,13 +301,17 @@ seen com 20% dos pacientes por etapa, mínimo de 2):
 | D44 | Onde roda a adaptação | **CPU**: a cabeça é pequena demais para compensar a GPU, e a CPU é determinística. Os embeddings (pesados) são calculados na GPU. ~20 ms por episódio | [DECIDIDO] |
 | D45 | Aleatoriedade da cabeça | Inicialização e sorteios de 50% por passo vêm de um gerador derivado da chave do episódio (D31), sem o protocolo: a cabeça começa com os **mesmos pesos** nos três protocolos (o pareamento da D29 vale também para a inicialização) | [DECIDIDO] |
 | D46 | Acurácia por imagem | Só `acc_img`: com o query balanceado (10 por classe), a acurácia balanceada por imagem é igual à acurácia comum | [DECIDIDO] |
-| D47 | Embeddings | Em memória durante o treino; os do mtst são gravados pelo `evaluate.py` em `results/embeddings/{mag}_{divisao}_seed{S}.npz` (~110 MB no total), para a contraprova (Etapa 6) e a auditoria | [DECIDIDO] |
+| D47 | Embeddings | Em memória durante o treino; os do mtst são gravados pelo `evaluate.py` em `results/embeddings/{mag}_{backbone}_{divisao}_seed{S}.npz` (~220 MB no total, com os do ImageNet), para a contraprova (Etapa 6) e a auditoria | [DECIDIDO] |
 | D48 | Época 0 no early stopping | **Concorre**: se nenhuma época do meta-treino superar a HM da mval do backbone só ImageNet, o `best_model.pt` é o próprio ImageNet (e isso é um achado) | [DECIDIDO] |
 | D49 | Lote final do meta-treino | O lote incompleto do fim de cada época é usado (como o `DataLoader` padrão); a perda é ponderada pelo tamanho real | [DECIDIDO] |
 | D50 | Treino interrompido | Sem retomada: a rodada roda de novo. O `config.json` só ganha o campo `fim` ao terminar, e o `run_grid` pula só rodadas completas | [DECIDIDO] |
 | D51 | Registro da mval por época | Todas as médias das 100 tarefas: HM, AUC seen/unseen, acc_img, acc_bal_pac, frac_V1/V2 (mostra como o vazamento guia o early stopping no P-IMG) | [DECIDIDO] |
 | D52 | Testes lentos | Testes que treinam a rede levam `@pytest.mark.slow` e ficam fora do `pytest` padrão; rodam com `pytest -m slow` (ou `-m ""` para todos) antes de commitar mudanças em `cache`, `model`, `adapt` ou `train` e antes de toda PR | [DECIDIDO] |
 | D53 | Ambiente do Windows (RX 7600) | PyTorch-ROCm do índice estável da AMD: `torch 2.13.0+rocm10.1.0` + `torchvision 0.28.0` (`device-gfx1102`), rodado com `UV_NO_SYNC=1`. O MIOpen dessa versão falha ao compilar a BatchNorm, e o `get_device()` o desliga quando o PyTorch é ROCm. Lote 16 a 700×456: 0,21 s por passo (M1: 0,56 s); lote 64 não cabe no limite de 75% | [DECIDIDO] |
+| D54 | Backbone do ImageNet no mtst | Os três protocolos são avaliados também com o backbone só do ImageNet (coluna `backbone` = `meta` ou `imagenet`), com os mesmos episódios e a mesma cabeça inicial. Sem meta-treino não há V2 (`frac_V2` = 0), então a diferença entre protocolos com esse backbone isola o efeito do V1 | [DECIDIDO] |
+| D55 | Auditoria dos episódios | Pacientes de cada papel (support/query) em cada episódio, por classe e com o número de imagens, em `.csv.gz` (uma vez por episódio: não depende do backbone) | [DECIDIDO] |
+| D56 | Configuração da avaliação | `config.json` próprio da avaliação (commit, dispositivo, constantes da adaptação e melhor época/HM de cada treino) | [DECIDIDO] |
+| D57 | Execuções pesadas | Testes lentos, treinos e avaliações rodam no Windows (RX 7600) via `ssh win`, a partir da sessão do Mac, **só com autorização explícita do aluno** a cada vez | [DECIDIDO] |
 
 ---
 
@@ -519,10 +523,11 @@ Arquivos em `results/` (D33), sem MLflow: são poucos treinos e o pandas basta.
 
 | Nível | Arquivo | Uma linha por |
 |---|---|---|
-| Treino | `results/treino/{mag}_{divisao}_seed{S}/epocas.csv` (+ `best_model.pt` e `config.json` com constantes, semente, dispositivo, versões e commit) | época: perda do mtrn, HM/AUCs da mval, se foi a melhor, tempo |
-| Avaliação | `results/mtst/{mag}_seed{S}.csv` | episódio × protocolo × k (colunas abaixo) |
-| Auditoria | `results/mtst/{mag}_seed{S}_pacientes.csv` | paciente × papel (support/query) em cada episódio |
-| Embeddings | `results/embeddings/{mag}_{divisao}_seed{S}.npz` | imagem do mtst (vetor de 1.024 + caminho), para a contraprova e a auditoria (D47) |
+| Treino | `results/train/{mag}_{divisao}_seed{S}/epocas.csv` (+ `best_model.pt` e `config.json` com constantes, semente, dispositivo, versões e commit) | época: perda do mtrn, HM/AUCs da mval, se foi a melhor, tempo |
+| Avaliação | `results/mtst/{mag}_seed{S}.csv` | episódio × protocolo × k × backbone (colunas abaixo, mais `backbone`) |
+| Auditoria | `results/mtst/{mag}_seed{S}_pacientes.csv.gz` | paciente × papel (support/query) em cada episódio (D55) |
+| Configuração da avaliação | `results/mtst/{mag}_seed{S}_config.json` | commit, dispositivo, constantes e melhor época/HM de cada backbone; `fim` marca a rodada completa (D56) |
+| Embeddings | `results/embeddings/{mag}_{backbone}_{divisao}_seed{S}.npz` | imagem do mtst (vetor de 1.024 + caminho), para a contraprova e a auditoria (D47) |
 
 A mval é guardada só agregada por época (diagnóstico do treino); o mtst, por episódio,
 porque dele saem a nota final, os ICs e o teste pareado. Colunas da avaliação:
