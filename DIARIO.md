@@ -178,3 +178,26 @@ Formato: data · o que rodou · resultado · decisão.
   (2,7× o M1); lote 32: 0,44 s; lote 64 dá erro de memória imediato com o limite de 75%.
   Estimativa: ~15 s por época, contra ~45 s a 1 min no M1. Os 22 testes rápidos passam
   na RX 7600.
+
+## 21/10/2026 — Etapa 5 concluída: avaliação e piloto (semente 0, 40×)
+
+- **Rodou:** `src/evaluate.py` (5d) e `tests/test_evaluate.py`; os 3 testes lentos na
+  RX 7600 (1min20s, todos passam); a rodada completa da semente 0 a 40× no Windows em
+  39 min (treinos `pac` e `img` de ~10 e ~12 min, ~16 s por época; avaliação de ~17 min).
+- **Reprodutibilidade:** no teste de ponta a ponta, perda e HM da mval por época
+  coincidiram entre M1 e RX 7600 (ex.: época 1, perda 0,5794 e HM 51,8 nas duas).
+- **Treinos:** `pac` parou na época 34 (melhor 24, HM da mval 58,9 contra 57,7 na época
+  0; a perda do mtrn foi a ~0,002); `img` parou na 45 (melhor 35, HM da mval 95,1 contra
+  84,3 na época 0), sempre com frac_V2 = 0,67 na mval.
+- **Resultado no mtst (HM, meta, k = 1/5/10):** P-IMG 80,9/91,5/94,8; P-MIX
+  75,5/91,0/95,8; P-PAC 55,6/56,7/56,1. Só ImageNet: P-PAC 56,9/58,1/58,0; P-IMG
+  68,8/84,8/90,4. Δ_total (meta) de 25 a 39 pontos (+45% a +69%). Tabela completa e
+  leitura na seção 16 do PROJETO.md.
+- **Análise:** o meta-treino só ajuda no P-IMG (V2); no P-PAC troca AUC unseen por seen
+  e perde um pouco na HM; a HM por episódio varia muito (dp ~20) e depende mais dos
+  pacientes sorteados que do backbone; AUC do TA abaixo de 50 no P-PAC sugere atalho pela
+  lâmina.
+- **Achado metodológico:** a decomposição Δ_V2 ≈ P-IMG − P-MIX não funciona, porque o
+  P-MIX tem mais V1 que o P-IMG; registrada como P7 (seção 6.2), a decidir na Etapa 9.
+- **Falta:** levar o piloto ao orientador (Etapa 7); contraprova (Etapa 6); grade
+  completa (Etapa 8, ~13 a 15 h no Windows; a avaliação na CPU é o gargalo).

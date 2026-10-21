@@ -343,6 +343,15 @@ stopping com o meta-teste.
 - Parcela de V1: `Δ_V1 ≈ M(P-MIX) − M(P-PAC)`
 - Também reportar o Δ relativo: `Δ / M(P-PAC) × 100%`.
 
+> **Correção após o piloto (P7, pendente):** a decomposição `Δ_V2 ≈ P-IMG − P-MIX` e
+> `Δ_V1 ≈ P-MIX − P-PAC` supõe que P-IMG e P-MIX tenham o mesmo V1, o que **não**
+> acontece: a divisão por paciente concentra poucos pacientes por classe na etapa, e o
+> P-MIX tem **mais** V1 que o P-IMG (frac_V1 de 0,42 a 0,93 contra 0,22 a 0,76 no
+> piloto). Com o backbone só ImageNet, o "Δ_V2" chega a sair negativo (−6 a −9). Proposta
+> para a Etapa 9: medir o **V2** pela comparação entre backbones no mesmo protocolo
+> (meta × ImageNet, D54) e o **V1** controlando o frac_V1 episódio a episódio (por
+> exemplo, regressão da HM sobre frac_V1 e protocolo). O Δ_total continua válido.
+
 ### 6.3 Como cada protocolo monta os dados
 
 **Classes seen (DC, F, MC, TA), que aparecem nas três etapas:**
@@ -668,6 +677,7 @@ passo sobe para 78 s. Daí a D42 (limite de memória) e a D43 (micro-lotes).
 | P4 | ~~Tamanho do query~~ | Resolvida: D28 | — |
 | P5 | ~~Anomalias nos IDs de paciente~~ | Resolvida: D19 a D22 (seção 4.2) | — |
 | P6 | Agregação entre sementes | Escolher a forma de IC entre sementes | Média ± desvio padrão das sementes, mais o IC dos episódios |
+| P7 | Decomposição V1/V2 | A subtração P-IMG − P-MIX não isola o V2 (seção 6.2, correção após o piloto). Decidir na Etapa 9 | V2 por meta × ImageNet; V1 controlando frac_V1 |
 
 ---
 
@@ -735,6 +745,8 @@ Em quatro passos, com revisão entre eles (D40):
   3 protocolos × 3 k × 1.000 episódios → CSVs da seção 8.4.
 - **Pronto quando:** os testes de sanidade da seção 12 passam numa magnificação e
   numa semente.
+- **Concluída em 21/10/2026:** 23 testes rápidos e 3 lentos passam (lentos na RX 7600);
+  rodada completa da semente 0 a 40× em 39 min (resultados na seção 16).
 
 ### Etapa 6: Contraprova com scikit-learn
 - `notebooks/03_contraprova.ipynb`: com os mesmos embeddings e episódios, treinar
@@ -748,6 +760,8 @@ Em quatro passos, com revisão entre eles (D40):
 - Conferir se os números fazem sentido e quanto tempo levou.
 - **Levar ao orientador** antes da grade completa (marco "está rodando").
 - **Pronto quando:** o orientador valida o piloto.
+- A rodada completa da semente 0 a 40× (Etapa 5) cobre e amplia o piloto: três
+  protocolos, k = 1, 5 e 10, 1.000 episódios e os dois backbones (seção 16).
 
 ### Etapa 8: Grade completa
 - `scripts/run_grid.py` define a grade em constantes e roda todas as combinações, pulando
@@ -821,3 +835,50 @@ Em quatro passos, com revisão entre eles (D40):
 - Howard, A. et al. Searching for MobileNetV3. ICCV 2019.
 - Xian, Y.; Schiele, B.; Akata, Z. Zero-shot learning — the good, the bad and the
   ugly. CVPR 2017 (média harmônica em GFSL).
+
+---
+
+## 16. Resultados preliminares: piloto (semente 0, 40×)
+
+Rodada completa no Windows (RX 7600) em 21/10/2026, 39 min: treino `pac` com 35 épocas
+(melhor 24, HM da mval 58,9; época 0: 57,7), treino `img` com 45 épocas (melhor 35, HM
+da mval 95,1; época 0: 84,3) e avaliação com 18.000 episódios (~17 min). Imagens a 40×:
+mtrn 651, mval 619, mtst 605; os 1.000 episódios cobrem 100% do mtst. Auditoria: nenhum
+paciente no support e no query no P-PAC.
+
+**HM no mtst** (média de 1.000 episódios; IC95 de ±0,3 a ±1,3):
+
+| Backbone | Protocolo | k = 1 | k = 5 | k = 10 | frac_V1 (k = 1 → 10) | frac_V2 |
+|---|---|---|---|---|---|---|
+| meta-treinado | P-IMG | 80,9 | 91,5 | 94,8 | 0,22 → 0,76 | 0,67 |
+| | P-MIX | 75,5 | 91,0 | 95,8 | 0,42 → 0,93 | 0 |
+| | P-PAC | 55,6 | 56,7 | 56,1 | 0 | 0 |
+| só ImageNet | P-IMG | 68,8 | 84,8 | 90,4 | 0,22 → 0,76 | 0 |
+| | P-MIX | 77,4 | 92,6 | 96,2 | 0,42 → 0,93 | 0 |
+| | P-PAC | 56,9 | 58,1 | 58,0 | 0 | 0 |
+
+**Indícios** (uma semente e uma magnificação; a confirmar na grade):
+
+1. **Vazamento total (meta):** Δ = P-IMG − P-PAC = 25,3 / 34,7 / 38,7 pontos de HM
+   (+45% / +61% / +69% sobre o P-PAC) para k = 1 / 5 / 10.
+2. **O ganho com mais exemplos é quase todo vazamento:** no P-IMG a HM sobe 14 pontos de
+   k = 1 para k = 10; no P-PAC fica estável. O frac_V1 do P-IMG cresce com k.
+3. **O meta-treino só ajuda com V2:** diferença pareada meta − ImageNet de +12,1 / +6,7 /
+   +4,4 no P-IMG (AUC seen +21 com k = 1), de −2,0 a −0,4 no P-MIX e de −1,3 a −1,9 no
+   P-PAC (só k = 10 significativo, Wilcoxon p = 0,008). No P-PAC o meta-treino sobe a AUC
+   seen (+3 a +4) e derruba a unseen (−6 a −7): especializa nas classes seen e nos
+   pacientes do mtrn (perda do treino ~0,002).
+4. **O V1 domina:** mesmo sem meta-treino (ImageNet, sem V2), o P-IMG fica 12 a 32
+   pontos acima do P-PAC; no P-IMG, a correlação entre frac_V1 e HM é ~0,25 em todo k.
+5. **A HM por episódio varia muito:** desvio-padrão de ~18 a 21 no P-PAC; ~20% dos
+   episódios abaixo de 40 e ~22% acima de 75 nos dois backbones; a correlação da HM
+   entre backbones, episódio a episódio, é de 0,58 a 0,70 (o sorteio dos pacientes pesa
+   mais que o backbone).
+6. **Sinal de atalho pela lâmina:** no P-PAC, a AUC do TA fica **abaixo de 50** (41,8
+   ImageNet; 34,8 meta), com apenas 2 pacientes de TA no mtst (um no support, o outro no
+   query); a do F fica em ~98. Classes com 1 ou 2 pacientes levam a extremos, o que
+   reforça a necessidade das várias sementes.
+7. **Decomposição:** ver a correção na seção 6.2 (P7).
+8. **Reprodutibilidade:** dados, divisões e episódios idênticos entre Mac e Windows; nas
+   2 épocas do teste de ponta a ponta, perda e HM da mval coincidiram entre M1 e RX 7600.
+
