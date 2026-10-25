@@ -460,7 +460,7 @@ tem vazamento e pode favorecer épocas mais tardias.
 - Magnificação: 40×, 100×, 200×, 400× (cada uma é um experimento independente).
 - k-shot: {1, 5, 10} (D27; k = 15 e 20 excluídos por inviabilidade, seção 6.4).
 
-**Fixos:** BatchBased, MobileNetV3-Small-0.75, 3-way com 1 unseen, 384×384, sem
+**Fixos:** BatchBased, MobileNetV3-Small-0.75, 3-way com 1 unseen, resolução nativa 700×456 (seção 9.6), sem
 augmentation e hiperparâmetros da seção 9.
 
 **Custo:** o pré-treino do BatchBased **não depende do k-shot**. Treina-se o
