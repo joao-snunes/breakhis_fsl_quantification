@@ -201,3 +201,24 @@ Formato: data · o que rodou · resultado · decisão.
   P-MIX tem mais V1 que o P-IMG; registrada como P7 (seção 6.2), a decidir na Etapa 9.
 - **Falta:** levar o piloto ao orientador (Etapa 7); contraprova (Etapa 6); grade
   completa (Etapa 8, ~13 a 15 h no Windows; a avaliação na CPU é o gargalo).
+
+## 21/10/2026 — Etapa 6: contraprova com o scikit-learn
+
+- **Rodou:** PR #3 (Etapa 5) mesclada na `main`. Embeddings do piloto copiados do
+  Windows (4 arquivos, ~11 MB); `data/splits/seed0.csv` idêntico nas duas máquinas.
+  `notebooks/03_contraprova.ipynb`: `OneVsRestClassifier(LogisticRegression(C=1))`
+  nos mesmos embeddings e episódios do `40_seed0.csv` (18.000 episódios, ~5 min na CPU
+  do M1, sem aviso de convergência), com as probabilidades por `sigmoid(decision_function)`
+  e as métricas da mesma `metricas()` do `adapt.py`.
+- **Conferência:** a cabeça em PyTorch, rodada de novo no Mac em 54 episódios, reproduz o
+  CSV do Windows (diferença máxima de 7·10⁻⁶ na HM).
+- **Resultado:** HM média das duas cabeças a no máximo 0,64 ponto (meta, P-IMG, k = 1);
+  nos outros grupos, de 0 a 0,5. Correlação da HM por episódio de 0,98 a 0,99 com o
+  backbone do ImageNet e de 0,93 a 0,97 com o meta-treinado; nele, a diferença por episódio
+  é maior (mediana de 2 a 3 pontos no P-PAC), sinal de que a cabeça é mais sensível à
+  regularização sobre essas features. Δ_total (P-IMG − P-PAC) igual nas duas cabeças, com
+  diferença de no máximo 0,9 ponto: as conclusões do piloto não dependem da implementação
+  da cabeça.
+- **Notas:** o notebook roda com `uv run --with nbconvert jupyter nbconvert --execute`,
+  sem dependência nova no `pyproject.toml`.
+- **Falta:** levar o piloto ao orientador (Etapa 7); grade completa (Etapa 8).

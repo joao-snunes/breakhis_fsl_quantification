@@ -754,6 +754,9 @@ Em quatro passos, com revisão entre eles (D40):
   em PyTorch.
 - **Pronto quando:** as AUCs médias ficam próximas (diferença de poucos décimos) e
   isso está registrado no diário.
+- **Concluída em 21/10/2026** (semente 0, 40×, os 18.000 episódios, `C = 1`): HM média
+  das duas cabeças a no máximo 0,64 ponto (em geral, poucos décimos), correlação por
+  episódio de 0,93 a 0,99 e Δ_total igual a menos de 1 ponto.
 
 ### Etapa 7: Experimento piloto
 - Uma magnificação (ex.: 40×), uma semente, os três protocolos, k = 5, 200 episódios.
