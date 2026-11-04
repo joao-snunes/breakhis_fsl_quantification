@@ -770,6 +770,8 @@ Em quatro passos, com revisão entre eles (D40):
 - `scripts/run_grid.py` define a grade em constantes e roda todas as combinações, pulando
   as que já têm resultado (permite retomar).
 - **Pronto quando:** todos os CSVs existem e nenhum teste de vazamento falhou.
+- **Concluída em 26/10/2026:** 40 treinos e 20 avaliações (360.000 linhas) em 11,1 h na RX 7600;
+  nenhum vazamento no P-PAC. Análise em `notebooks/04_resultados.ipynb`.
 
 ### Etapa 9: Análise
 - `notebooks/04_resultados.ipynb`: tabela central (linhas: magnificação × k; colunas:

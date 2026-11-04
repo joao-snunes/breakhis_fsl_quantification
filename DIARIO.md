@@ -222,3 +222,51 @@ Formato: data · o que rodou · resultado · decisão.
 - **Notas:** o notebook roda com `uv run --with nbconvert jupyter nbconvert --execute`,
   sem dependência nova no `pyproject.toml`.
 - **Falta:** levar o piloto ao orientador (Etapa 7); grade completa (Etapa 8).
+
+## 25/10/2026 — Etapa 8: grade completa com retomada
+
+- **Decisões:** a contraprova fica na branch `contraprova`, fora da `main`, até decidir se
+  entra no método. A grade roda semente por fora e magnificação por dentro, para cada noite
+  fechar sementes inteiras.
+- **Rodou:** `scripts/run_grid.py` (pula o que tem `fim` no `config.json`; um treino
+  interrompido recomeça do zero, D50) e `tests/test_run_grid.py`. 24 testes rápidos passam.
+  Corrigida a seção 7 do PROJETO.md (entrada 700×456, não 384×384).
+- **Execução:** disparar pelo `ssh win` prende o processo à conexão (o Windows o encerra se o
+  ssh cair). A grade foi disparada direto no Windows, pelo Moonlight.
+
+## 26/10/2026 — Grade completa concluída
+
+- **Rodou:** 19 rodadas novas mais o piloto (pulado) na RX 7600, em 11,1 h, sem erros. 20
+  avaliações com 18.000 linhas cada (360.000 no total).
+- **Conferências:** `frac_V1` e `frac_V2` iguais a zero em todos os episódios do P-PAC;
+  `frac_V2` zero no P-MIX; auditoria sem paciente no support e no query do P-PAC.
+- **Treinos:** na divisão por paciente, 12 dos 20 treinos escolheram a época 0 ou 1 (o
+  backbone fica igual ou quase igual ao do ImageNet); na divisão por imagem, épocas de 21 a 63.
+- **Paciência 10:** pelas curvas da mval, não afeta a divisão por imagem (curvas estáveis). Na
+  divisão por paciente, a HM cai depois da época 1 e se recupera devagar; 5 treinos pararam
+  ainda subindo. Mantida a paciência 10 do artigo (método fixo); uma análise de sensibilidade
+  com paciência maior fica para discutir com o orientador.
+
+## 04/11/2026 — Análise dos resultados, documentação e merge na main
+
+- **Rodou:** `notebooks/04_resultados.ipynb` (HM, Δ_total, outras métricas, exposição,
+  extremos, AUC por classe, meta − ImageNet, treinos); `METODO.md` na branch `docs`, com o
+  método completo e as fórmulas em TeX; README com o resumo do método e o passo a passo. PR #4
+  (Etapa 8) mesclada na `main`.
+- **Resultado:** Δ_total (meta) de 24 a 41 pontos de HM (+43% a +80%), positivo nas 20 rodadas
+  em todo k. O P-PAC fica entre 52 e 60 e não melhora com k. O meta-treino dá +8 a +17 no P-IMG
+  e ~+2 no P-PAC, com desvio entre rodadas (~5) maior que o efeito.
+- **Decisões:**
+  - Sem teste de Wilcoxon por episódio: os episódios reaproveitam os mesmos poucos pacientes e
+    não são independentes (pseudorreplicação). Os resultados são reportados como média ± desvio
+    entre sementes, mais a consistência nas 20 rodadas.
+  - A 2.3 do notebook passa a se chamar "diferença entre HM por protocolo": o Δ é uma diferença
+    de desempenho, atribuída ao vazamento pelo desenho; a exposição é medida pelo `frac_V1/V2`.
+  - A seção por episódio do notebook fica só com o desvio e a % de HM < 50.
+  - HM sobre AUC (e não F1) por fidelidade ao artigo e por não depender de limiar; as acurácias
+    por argmax ficam como métricas complementares.
+- **Achados:** a semente 109 é a mais difícil no P-PAC em quase todas as magnificações (mesmos
+  pacientes no mtst nas 4, D24; MC com AUC ~30). O P-MIX tem mais V1 que o P-IMG porque a
+  divisão por paciente concentra poucos pacientes por classe em cada etapa.
+- **Falta:** levar o método completo ao orientador (D21, exclusão do k = 15, paciência,
+  contraprova); decidir a P7 (decomposição V1/V2).
