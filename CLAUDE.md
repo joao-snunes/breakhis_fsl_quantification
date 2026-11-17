@@ -19,6 +19,19 @@ Leia antes de qualquer tarefa:
   (https://github.com/bereml/meta-cxr). Use-o **só como referência**: copie trechos
   quando o `REUSO_CODIGO.md` indicar e não o modifique.
 
+## Base de leitura (Obsidian, fora do Git)
+
+- Notas de artigos, conceitos e sínteses ficam num vault do Obsidian sincronizado pelo
+  OneDrive. No Mac: `~/Library/CloudStorage/OneDrive-Personal/Documentos/Obsidian Vault/TCC/`.
+  Comece pelo `README.md` (índice e argumento de relevância).
+- `artigos/`: uma nota por artigo, com o nome igual à chave do Better BibTeX
+  (`auth.lower + year`, ex.: `bussola2021`) e cabeçalho `citekey`, `doi`, `status`, `eixo`.
+  `conceitos/`: ideias ligadas por `[[links]]`.
+- Decisões do projeto continuam no `docs/PROJETO.md`; o vault não substitui o `PROJETO.md`.
+- Referências do texto: `.bib` exportado pelo Zotero (Better BibLaTeX, "Keep updated").
+  Nunca editar o `.bib` à mão. Artigo novo: o aluno adiciona no Zotero (coleção TCC) e
+  importa as anotações para o vault com o plugin Zotero Integration do Obsidian.
+
 ## Organização do Git: código na `main`, documentação na branch `docs`
 
 O repositório começa **privado** e será tornado público quando o trabalho estiver
